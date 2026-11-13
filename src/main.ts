@@ -11,7 +11,7 @@ import {
 import { buildDynamicCss } from './dynamic-styles';
 import { createEditorExtension, createSignifierInputHandler } from './editor';
 import { syncAgentLegend, syncNoteLegend } from './legend';
-import { createReadingProcessor } from './reading';
+import { createReadingProcessor, decorateTasksPluginItem } from './reading';
 import {
 	CustomBulletsSettingTab,
 	CustomBulletsSettings,
@@ -97,6 +97,31 @@ export default class CustomBulletsPlugin extends Plugin {
 			doc.adoptedStyleSheets = doc.adoptedStyleSheets.filter((s) => s !== sheet);
 		});
 		this.registerBulletMenu(doc);
+		this.watchTasksPlugin(doc);
+	}
+
+	/**
+	 * The Tasks plugin draws its query results on its own, outside Markdown post
+	 * processing, and redraws them whenever a task changes. Watch for them so the
+	 * signifiers in those results are drawn too.
+	 */
+	private watchTasksPlugin(doc: Document) {
+		const ITEM = 'li.plugin-tasks-list-item';
+		const decorate = (root: HTMLElement) => {
+			const signifiers = validSignifiers(this.settings);
+			if (root.matches(ITEM)) decorateTasksPluginItem(root, signifiers);
+			root.querySelectorAll<HTMLElement>(ITEM).forEach((li) => decorateTasksPluginItem(li, signifiers));
+		};
+		const observer = new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				mutation.addedNodes.forEach((node) => {
+					if (node.instanceOf(HTMLElement) && (node.matches(ITEM) || node.querySelector(ITEM))) decorate(node);
+				});
+			}
+		});
+		observer.observe(doc.body, { childList: true, subtree: true });
+		this.register(() => observer.disconnect());
+		decorate(doc.body);
 	}
 
 	/** Right-click a bullet, or long-press it on a touch screen, to change it or its signifier. */

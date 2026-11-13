@@ -124,6 +124,10 @@ export function openMenuForCheckbox(
 ): boolean {
 	const editorEl = checkbox.closest<HTMLElement>('.cm-editor');
 	if (editorEl) {
+		// Only a checkbox that stands for its own source line. One inside an embedded block
+		// (a Tasks query, an embed) maps to the block's line, which must not be rewritten;
+		// leave those to whatever drew them.
+		if (!checkbox.closest('.HyperMD-task-line') || checkbox.closest('.cm-embed-block, .cm-preview-code-block')) return false;
 		const view = EditorView.findFromDOM(editorEl);
 		if (!view) return false;
 		const line = view.state.doc.lineAt(view.posAtDOM(checkbox));
