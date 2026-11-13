@@ -1,4 +1,13 @@
-import { App, Modal, Platform, PluginSettingTab, Setting } from 'obsidian';
+import {
+	App,
+	Modal,
+	Notice,
+	Platform,
+	PluginSettingTab,
+	Setting,
+	SettingDefinitionItem,
+	SettingDefinitionPage,
+} from 'obsidian';
 import type CustomBulletsPlugin from './main';
 import type { SignifierPosition } from './signifiers';
 
@@ -36,15 +45,6 @@ export interface BulletDef {
 }
 
 export const DEFAULT_TEXT_COLOR = 'default';
-
-type TextStyleKey = 'strike' | 'underline' | 'bold' | 'italic';
-
-const TEXT_STYLES: { key: TextStyleKey; icon: string; label: string }[] = [
-	{ key: 'strike', icon: 'strikethrough', label: 'Strikethrough' },
-	{ key: 'underline', icon: 'underline', label: 'Underline' },
-	{ key: 'bold', icon: 'bold', label: 'Bold' },
-	{ key: 'italic', icon: 'italic', label: 'Italic' },
-];
 
 function bullet(char: string, symbol: string, overrides: Partial<BulletDef> = {}): BulletDef {
 	return {
@@ -184,7 +184,7 @@ class ResetConfirmModal extends Modal {
 			.addButton((button) =>
 				button
 					.setButtonText('Reset')
-					.setWarning()
+					.setDestructive()
 					.onClick(() => {
 						this.close();
 						this.onConfirm();
@@ -197,15 +197,16 @@ class ResetConfirmModal extends Modal {
 	}
 }
 
-/** A row of column labels that shares the grid of the rows below it. */
-function addHeaderRow(containerEl: HTMLElement, kind: 'bullets' | 'signifiers', labels: { text: string; span?: number }[]) {
-	const row = new Setting(containerEl).setClass('custom-bullets-row').setClass(`custom-bullets-${kind}`).setClass('custom-bullets-header');
-	for (const label of labels) {
-		const el = row.controlEl.createSpan({ text: label.text });
-		if (label.span) el.style.setProperty('grid-column', `span ${label.span}`);
-	}
-}
+const COLOR_OPTIONS: Record<string, string> = Object.fromEntries(
+	Object.entries(COLORS).map(([key, color]) => [key, color.label]),
+);
+const TEXT_COLOR_OPTIONS: Record<string, string> = { [DEFAULT_TEXT_COLOR]: 'Same as the text', ...COLOR_OPTIONS };
 
+/**
+ * The settings are declared, not drawn: Obsidian renders them, saves them and
+ * indexes them for the settings search. Each bullet and signifier is an entry in
+ * a list that opens a page of its own, which also suits a phone.
+ */
 export class CustomBulletsSettingTab extends PluginSettingTab {
 	plugin: CustomBulletsPlugin;
 
@@ -214,317 +215,272 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		const { settings } = this.plugin;
-		containerEl.empty();
-		containerEl.addClass('custom-bullets-settings');
-
-		// How to change a bullet, worded for the device in hand.
-		new Setting(containerEl).setName('Changing a bullet').setHeading();
 		const mobile = Platform.isMobile;
-		new Setting(containerEl)
-			.setName(mobile ? 'Tapping a bullet' : 'Clicking a bullet')
-			.setDesc(
-				mobile
-					? 'What a short tap does. Nothing, unless you choose otherwise, so a stray tap never changes a task.'
-					: 'What a plain click does. Nothing, unless you choose otherwise, so a stray click never changes a task.',
-			)
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption('none', 'Do nothing')
-					.addOption('toggle', 'Mark the task done')
-					.addOption('menu', 'Open the menu')
-					.setValue(settings.tapAction)
-					.onChange(async (value) => {
-						settings.tapAction = value as TapAction;
-						await this.plugin.saveSettings();
-					}),
-			);
-		const tips: [string, string][] = mobile
-			? [
-					['Touch and hold', 'Opens a menu with every bullet and signifier.'],
-					[
-						'From the toolbar',
-						'Add "Custom Bullets: Choose a bullet for this line" to the mobile toolbar (search these settings for "toolbar"). The button opens the same menu for the line you are typing on, so you do not have to hit the bullet.',
-					],
-				]
-			: [
-					['Right-click', 'Opens a menu with every bullet and signifier.'],
-					[
-						'From the keyboard',
-						'Give "Custom Bullets: Choose a bullet for this line" a hotkey to open the same menu for the line the cursor is on. Each bullet and signifier also has a command of its own.',
-					],
-				];
-		for (const [name, description] of tips) {
-			new Setting(containerEl).setName(name).setDesc(description).setClass('custom-bullets-tip');
-		}
-
-		new Setting(containerEl)
-			.setName('Bullets')
-			.setDesc('For each bullet: the character between the brackets, the symbol drawn in its place, the bullet color, and how the text of the line looks.')
-			.setHeading();
-
-		addHeaderRow(containerEl, 'bullets', [
-			{ text: 'Char' },
-			{ text: 'Symbol' },
-			{ text: 'Bullet color' },
-			{ text: 'Text color' },
-			{ text: 'Text style', span: 4 },
-			{ text: '' },
-		]);
-
-		// Each row re-checks itself whenever any row changes, since a duplicate
-		// depends on the rows above it.
-		const refreshers: (() => void)[] = [];
-		const refreshAll = () => refreshers.forEach((refresh) => refresh());
-
-		settings.bullets.forEach((item, index) => {
-			const locked = LOCKED_CHARS.has(item.char);
-			const row = new Setting(containerEl).setClass('custom-bullets-row').setClass('custom-bullets-bullets');
-			// Every row is labelled with what the user types, so the rows line up.
-			const label = () => (item.char === '' ? 'New' : `- [${item.char}]`);
-			// The reason a row is ignored goes on its own line under the row, so the columns stay put.
-			const errorEl = row.settingEl.createDiv({ cls: 'custom-bullets-error' });
-			refreshers.push(() => {
-				const error = bulletError(settings.bullets, index);
-				row.setName(label());
-				errorEl.setText(error ?? '');
-				row.settingEl.toggleClass('custom-bullets-invalid', error !== null);
-			});
-			row.addText((text) => {
-				text.setPlaceholder(locked ? '' : 'Char')
-					.setValue(item.char === ' ' ? '' : item.char)
-					.setDisabled(locked)
-					.onChange(async (value) => {
-						item.char = value;
-						refreshAll();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.maxLength = 1;
-				text.inputEl.addClass('custom-bullets-char');
-				text.inputEl.setAttr('aria-label', 'Character between the brackets');
-			});
-			row.addText((text) => {
-				text.setPlaceholder('Symbol')
-					.setValue(item.symbol)
-					.onChange(async (value) => {
-						item.symbol = value;
-						refreshAll();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.maxLength = 2;
-				text.inputEl.addClass('custom-bullets-char');
-				text.inputEl.setAttr('aria-label', 'Symbol to draw');
-			});
-			row.addDropdown((dropdown) => {
-				for (const [key, color] of Object.entries(COLORS)) dropdown.addOption(key, color.label);
-				dropdown.setValue(item.color).onChange(async (value) => {
-					item.color = value;
-					await this.plugin.saveSettings();
-				});
-				dropdown.selectEl.setAttr('aria-label', 'Bullet color');
-				dropdown.selectEl.title = 'Bullet color';
-			});
-			row.addDropdown((dropdown) => {
-				dropdown.addOption(DEFAULT_TEXT_COLOR, 'Default');
-				for (const [key, color] of Object.entries(COLORS)) dropdown.addOption(key, color.label);
-				dropdown.setValue(item.textColor).onChange(async (value) => {
-					item.textColor = value;
-					await this.plugin.saveSettings();
-				});
-				dropdown.selectEl.setAttr('aria-label', 'Text color');
-				dropdown.selectEl.title = 'Text color';
-			});
-			for (const style of TEXT_STYLES) {
-				row.addExtraButton((button) => {
-					button.setIcon(style.icon).setTooltip(style.label);
-					const el = button.extraSettingsEl;
-					el.addClass('custom-bullets-style-toggle');
-					el.toggleClass('is-active', item[style.key]);
-					button.onClick(async () => {
-						item[style.key] = !item[style.key];
-						el.toggleClass('is-active', item[style.key]);
-						await this.plugin.saveSettings();
-					});
-				});
-			}
-			row.addExtraButton((button) =>
-				button
-					.setIcon('trash-2')
-					.setTooltip('Remove')
-					.setDisabled(locked)
-					.onClick(async () => {
-						settings.bullets.splice(index, 1);
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-			);
-		});
-
-		refreshAll();
-
-		new Setting(containerEl).addButton((button) =>
-			button.setButtonText('Add bullet').onClick(async () => {
-				settings.bullets.push(bullet('', ''));
-				await this.plugin.saveSettings();
-				this.display();
-			}),
-		);
-
-		new Setting(containerEl)
-			.setName('Signifiers')
-			.setDesc('A character typed right after the checkbox, such as the asterisk in "- [ ] * text". It can be combined with any bullet, and drawn to the left of the bullet, on top of it, or to its right.')
-			.setHeading();
-
-		addHeaderRow(containerEl, 'signifiers', [
-			{ text: 'Char' },
-			{ text: 'Symbol' },
-			{ text: 'Color' },
-			{ text: 'Position' },
-			{ text: '' },
-		]);
-
-		const signifierRefreshers: (() => void)[] = [];
-		const refreshSignifiers = () => signifierRefreshers.forEach((refresh) => refresh());
-
-		settings.signifiers.forEach((signifier, index) => {
-			const row = new Setting(containerEl).setClass('custom-bullets-row').setClass('custom-bullets-signifiers');
-			const label = () => (signifier.char === '' ? 'New' : `- [ ] ${signifier.char} text`);
-			const errorEl = row.settingEl.createDiv({ cls: 'custom-bullets-error' });
-			signifierRefreshers.push(() => {
-				const error = signifierError(settings.signifiers, index);
-				row.setName(label());
-				errorEl.setText(error ?? '');
-				row.settingEl.toggleClass('custom-bullets-invalid', error !== null);
-			});
-			row.addText((text) => {
-				text.setPlaceholder('Char')
-					.setValue(signifier.char)
-					.onChange(async (value) => {
-						signifier.char = value;
-						refreshSignifiers();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.maxLength = 1;
-				text.inputEl.addClass('custom-bullets-char');
-				text.inputEl.setAttr('aria-label', 'Signifier character');
-			});
-			row.addText((text) => {
-				text.setPlaceholder('Symbol')
-					.setValue(signifier.symbol ?? '')
-					.onChange(async (value) => {
-						signifier.symbol = value;
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.maxLength = 2;
-				text.inputEl.addClass('custom-bullets-char');
-				text.inputEl.setAttr('aria-label', 'Symbol to draw');
-			});
-			row.addDropdown((dropdown) => {
-				for (const [key, color] of Object.entries(COLORS)) dropdown.addOption(key, color.label);
-				dropdown.setValue(signifier.color).onChange(async (value) => {
-					signifier.color = value;
-					await this.plugin.saveSettings();
-				});
-			});
-			row.addDropdown((dropdown) => {
-				dropdown
-					.addOption('left', 'Left of bullet')
-					.addOption('center', 'On the bullet')
-					.addOption('right', 'Right of bullet')
-					.setValue(signifier.position ?? 'right')
-					.onChange(async (value) => {
-						signifier.position = value as SignifierPosition;
-						await this.plugin.saveSettings();
-					});
-				dropdown.selectEl.setAttr('aria-label', 'Position relative to the bullet');
-			});
-			row.addExtraButton((button) =>
-				button
-					.setIcon('trash-2')
-					.setTooltip('Remove')
-					.onClick(async () => {
-						settings.signifiers.splice(index, 1);
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-			);
-		});
-
-		refreshSignifiers();
-
-		new Setting(containerEl).addButton((button) =>
-			button.setButtonText('Add signifier').onClick(async () => {
-				settings.signifiers.push({ char: '', symbol: '', meaning: '', color: 'text', position: 'right' });
-				await this.plugin.saveSettings();
-				this.display();
-			}),
-		);
-
-		new Setting(containerEl)
-			.setName('AI agents')
-			.setDesc('Agents read the raw text of your notes, not the symbols. A legend built from the meanings above tells them what each bullet and signifier stands for.')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Keep a legend for AI agents')
-			.setDesc('Maintains a marked section in AGENTS.md and CLAUDE.md at the top of the vault. If neither file exists, AGENTS.md is created. The rest of those files is never touched.')
-			.addToggle((toggle) =>
-				toggle.setValue(settings.agentLegend === 'on').onChange(async (value) => {
-					settings.agentLegend = value ? 'on' : 'off';
-					await this.plugin.saveSettings();
-				}),
-			);
-
-		new Setting(containerEl)
-			.setName('Also add a legend to each note')
-			.setDesc('Writes a "bullet-legend" property into notes that use bullets or signifiers beyond the plain task and done, so the meaning travels with the note. Updated when you leave the note.')
-			.addToggle((toggle) =>
-				toggle.setValue(settings.noteLegend).onChange(async (value) => {
-					settings.noteLegend = value;
-					await this.plugin.saveSettings();
-				}),
-			);
-
-		new Setting(containerEl)
-			.setName('What each one means')
-			.setDesc('The legend is built from these descriptions. A bullet or signifier without one is left out of the legend.')
-			.setClass('custom-bullets-meanings-intro');
-
-		const addMeaningRow = (label: string, item: { meaning: string }) => {
-			new Setting(containerEl)
-				.setName(label)
-				.setClass('custom-bullets-meaning-row')
-				.addText((text) => {
-					text.setPlaceholder('A few words, such as "waiting for a reply"')
-						.setValue(item.meaning)
-						.onChange(async (value) => {
-							item.meaning = value.trim();
-							await this.plugin.saveSettings();
-						});
-					text.inputEl.setAttr('aria-label', `Meaning of ${label}`);
-				});
+		const save = async () => {
+			await this.plugin.saveSettings();
+			this.update();
 		};
-		settings.bullets.forEach((item, index) => {
-			if (bulletError(settings.bullets, index) === null) addMeaningRow(`- [${item.char}]`, item);
-		});
-		settings.signifiers.forEach((item, index) => {
-			if (signifierError(settings.signifiers, index) === null) addMeaningRow(`- [ ] ${item.char} text`, item);
-		});
 
-		new Setting(containerEl)
-			.setName('Reset to defaults')
-			.setDesc('Restore the bullets and signifiers the plugin comes with. Your notes are not changed.')
-			.addButton((button) =>
-				button
-					.setButtonText('Reset')
-					.setWarning()
-					.onClick(() => {
-						new ResetConfirmModal(this.app, () => {
-							void this.plugin.resetSettings().then(() => this.display());
-						}).open();
-					}),
-			);
+		return [
+			{
+				type: 'group',
+				heading: 'Changing a bullet',
+				items: [
+					{
+						name: mobile ? 'Tapping a bullet' : 'Clicking a bullet',
+						desc: mobile
+							? 'What a short tap does. Nothing, unless you choose otherwise, so a stray tap never changes a task.'
+							: 'What a plain click does. Nothing, unless you choose otherwise, so a stray click never changes a task.',
+						control: {
+							type: 'dropdown',
+							key: 'tapAction',
+							options: { none: 'Do nothing', toggle: 'Mark the task done', menu: 'Open the menu' },
+						},
+					},
+					{
+						name: mobile ? 'Touch and hold' : 'Right-click',
+						desc: 'Opens a menu with every bullet and signifier.',
+					},
+					mobile
+						? {
+								name: 'From the toolbar',
+								desc: 'Add "Custom Bullets: Choose a bullet for this line" to the mobile toolbar (search these settings for "toolbar"). The button opens the same menu for the line you are typing on, so you do not have to hit the bullet.',
+							}
+						: {
+								name: 'From the keyboard',
+								desc: 'Give "Custom Bullets: Choose a bullet for this line" a hotkey to open the same menu for the line the cursor is on. Each bullet and signifier also has a command of its own.',
+							},
+				],
+			},
+			{
+				type: 'list',
+				heading: 'Bullets',
+				emptyState: 'No bullets.',
+				addItem: {
+					name: 'Add bullet',
+					action: () => {
+						settings.bullets.push(bullet('', ''));
+						void save();
+					},
+				},
+				onReorder: (from, to) => {
+					const [moved] = settings.bullets.splice(from, 1);
+					if (moved) settings.bullets.splice(to, 0, moved);
+					void save();
+				},
+				onDelete: (index) => {
+					if (LOCKED_CHARS.has(settings.bullets[index]?.char ?? '')) {
+						new Notice('The task and done bullets cannot be removed.');
+					} else {
+						settings.bullets.splice(index, 1);
+					}
+					void save();
+				},
+				items: settings.bullets.map((_, index) => this.bulletPage(index)),
+			},
+			{
+				type: 'list',
+				heading: 'Signifiers',
+				emptyState: 'No signifiers. A signifier is a character typed right after the checkbox, as in "- [ ] * text".',
+				addItem: {
+					name: 'Add signifier',
+					action: () => {
+						settings.signifiers.push({ char: '', symbol: '', meaning: '', color: 'text', position: 'right' });
+						void save();
+					},
+				},
+				onReorder: (from, to) => {
+					const [moved] = settings.signifiers.splice(from, 1);
+					if (moved) settings.signifiers.splice(to, 0, moved);
+					void save();
+				},
+				onDelete: (index) => {
+					settings.signifiers.splice(index, 1);
+					void save();
+				},
+				items: settings.signifiers.map((_, index) => this.signifierPage(index)),
+			},
+			{
+				type: 'group',
+				heading: 'AI agents',
+				items: [
+					{
+						name: 'Keep a legend for AI agents',
+						desc: 'Agents read the raw text of your notes, not the symbols. This maintains a marked section in AGENTS.md and CLAUDE.md at the top of the vault that says what each bullet and signifier means. If neither file exists, AGENTS.md is created. The rest of those files is never touched.',
+						control: { type: 'toggle', key: 'agentLegend' },
+					},
+					{
+						name: 'Also add a legend to each note',
+						desc: 'Writes a "bullet-legend" property into notes that use bullets or signifiers beyond the plain task and done, so the meaning travels with the note. Updated when you leave the note.',
+						control: { type: 'toggle', key: 'noteLegend' },
+					},
+				],
+			},
+			{
+				name: 'Reset to defaults',
+				desc: 'Restore the bullets and signifiers the plugin comes with. Your notes are not changed.',
+				render: (setting) => {
+					setting.addButton((button) =>
+						button
+							.setButtonText('Reset')
+							.setDestructive()
+							.onClick(() => {
+								new ResetConfirmModal(this.app, () => {
+									void this.plugin.resetSettings().then(() => this.update());
+								}).open();
+							}),
+					);
+				},
+			},
+		];
+	}
+
+	/** One bullet: an entry in the list that opens a page with its fields. */
+	private bulletPage(index: number): SettingDefinitionPage {
+		const { bullets } = this.plugin.settings;
+		const item = bullets[index] ?? bullet('', '');
+		const locked = LOCKED_CHARS.has(item.char);
+		const error = bulletError(bullets, index);
+		const key = (field: string) => `bullets.${index}.${field}`;
+		return {
+			type: 'page',
+			name: item.char === '' ? 'New bullet' : `- [${item.char}]`,
+			desc: error ?? item.meaning,
+			displayValue: item.symbol,
+			status: error ? 'warning' : null,
+			items: [
+				{
+					name: 'Character',
+					desc: locked
+						? 'The character between the brackets. This one is fixed.'
+						: 'The character between the brackets, as in "- [x]".',
+					control: {
+						type: 'text',
+						key: key('char'),
+						disabled: locked,
+						validate: (value) => {
+							if (value.length !== 1) return 'Enter a single character';
+							if (bullets.some((b, i) => i !== index && b.char === value)) return `"${value}" is already used by another bullet`;
+							return undefined;
+						},
+					},
+				},
+				{
+					name: 'Symbol',
+					desc: 'What is drawn in place of the checkbox. Common symbols are drawn as shapes; anything else, an emoji included, is drawn as text.',
+					control: {
+						type: 'text',
+						key: key('symbol'),
+						validate: (value) => (value.length === 0 ? 'Enter a symbol' : undefined),
+					},
+				},
+				{
+					name: 'Meaning',
+					desc: 'A few words, such as "waiting for a reply". Shown in the menu, in the commands and in the legend for AI agents.',
+					control: { type: 'text', key: key('meaning') },
+				},
+				{
+					name: 'Bullet color',
+					control: { type: 'dropdown', key: key('color'), options: COLOR_OPTIONS },
+				},
+				{
+					type: 'group',
+					heading: 'Text of the line',
+					items: [
+						{ name: 'Color', control: { type: 'dropdown', key: key('textColor'), options: TEXT_COLOR_OPTIONS } },
+						{ name: 'Strikethrough', control: { type: 'toggle', key: key('strike') } },
+						{ name: 'Underline', control: { type: 'toggle', key: key('underline') } },
+						{ name: 'Bold', control: { type: 'toggle', key: key('bold') } },
+						{ name: 'Italic', control: { type: 'toggle', key: key('italic') } },
+					],
+				},
+			],
+		};
+	}
+
+	/** One signifier: an entry in the list that opens a page with its fields. */
+	private signifierPage(index: number): SettingDefinitionPage {
+		const { signifiers } = this.plugin.settings;
+		const item = signifiers[index];
+		const error = signifierError(signifiers, index);
+		const key = (field: string) => `signifiers.${index}.${field}`;
+		return {
+			type: 'page',
+			name: !item || item.char === '' ? 'New signifier' : `- [ ] ${item.char} text`,
+			desc: error ?? item?.meaning ?? '',
+			displayValue: item?.symbol || item?.char || '',
+			status: error ? 'warning' : null,
+			items: [
+				{
+					name: 'Character',
+					desc: 'The character typed right after the checkbox, as in "- [ ] * text".',
+					control: {
+						type: 'text',
+						key: key('char'),
+						validate: (value) => {
+							const candidate = signifiers.map((s, i) => (i === index ? { ...s, char: value } : s));
+							return signifierError(candidate, index) ?? undefined;
+						},
+					},
+				},
+				{
+					name: 'Symbol',
+					desc: 'What is drawn in its place. Leave it empty to draw the character itself.',
+					control: { type: 'text', key: key('symbol') },
+				},
+				{
+					name: 'Meaning',
+					desc: 'A few words, such as "priority". Shown in the menu, in the commands and in the legend for AI agents.',
+					control: { type: 'text', key: key('meaning') },
+				},
+				{
+					name: 'Color',
+					control: { type: 'dropdown', key: key('color'), options: COLOR_OPTIONS },
+				},
+				{
+					name: 'Position',
+					desc: 'Where it is drawn: to the left of the bullet, on top of it, or to its right, before the text.',
+					control: {
+						type: 'dropdown',
+						key: key('position'),
+						options: { left: 'Left of bullet', center: 'On the bullet', right: 'Right of bullet' },
+					},
+				},
+			],
+		};
+	}
+
+	/**
+	 * Keys are paths into the settings, such as `bullets.3.symbol`.
+	 * `agentLegend` is three-valued in storage (not yet asked, on, off) but a toggle here.
+	 */
+	getControlValue(key: string): unknown {
+		if (key === 'agentLegend') return this.plugin.settings.agentLegend === 'on';
+		let value: unknown = this.plugin.settings;
+		for (const part of key.split('.')) {
+			if (value === null || typeof value !== 'object') return undefined;
+			value = (value as Record<string, unknown>)[part];
+		}
+		return value;
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (key === 'agentLegend') {
+			this.plugin.settings.agentLegend = value ? 'on' : 'off';
+		} else {
+			const parts = key.split('.');
+			const last = parts.pop();
+			let target: unknown = this.plugin.settings;
+			for (const part of parts) {
+				if (target === null || typeof target !== 'object') return;
+				target = (target as Record<string, unknown>)[part];
+			}
+			if (last === undefined || target === null || typeof target !== 'object') return;
+			(target as Record<string, unknown>)[last] = typeof value === 'string' && last === 'meaning' ? value.trim() : value;
+		}
+		// Overriding this method replaces Obsidian's own save.
+		await this.plugin.saveSettings();
 	}
 }
