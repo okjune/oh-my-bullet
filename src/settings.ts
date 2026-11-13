@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Modal, PluginSettingTab, Setting } from 'obsidian';
 import type CustomBulletsPlugin from './main';
 import type { SignifierPosition } from './signifiers';
 
@@ -125,6 +125,38 @@ export function validSignifiers(settings: CustomBulletsSettings): SignifierDef[]
 		})
 		// Settings saved by an earlier version have no symbol or position.
 		.map((s) => ({ ...s, symbol: s.symbol || (s.char === '*' ? '✱' : s.char), position: s.position ?? 'right' }));
+}
+
+/** Asks before throwing away the user's bullets and signifiers. */
+class ResetConfirmModal extends Modal {
+	constructor(
+		app: App,
+		private onConfirm: () => void,
+	) {
+		super(app);
+	}
+
+	onOpen() {
+		this.setTitle('Reset to defaults?');
+		this.contentEl.createEl('p', {
+			text: 'Every bullet and signifier goes back to how it was when the plugin was first installed. Your notes are not changed.',
+		});
+		new Setting(this.contentEl)
+			.addButton((button) => button.setButtonText('Cancel').onClick(() => this.close()))
+			.addButton((button) =>
+				button
+					.setButtonText('Reset')
+					.setWarning()
+					.onClick(() => {
+						this.close();
+						this.onConfirm();
+					}),
+			);
+	}
+
+	onClose() {
+		this.contentEl.empty();
+	}
 }
 
 /** A row of column labels that shares the grid of the rows below it. */
@@ -325,5 +357,19 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 				this.display();
 			}),
 		);
+
+		new Setting(containerEl)
+			.setName('Reset to defaults')
+			.setDesc('Restore the bullets and signifiers the plugin comes with. Your notes are not changed.')
+			.addButton((button) =>
+				button
+					.setButtonText('Reset')
+					.setWarning()
+					.onClick(() => {
+						new ResetConfirmModal(this.app, () => {
+							void this.plugin.resetSettings().then(() => this.display());
+						}).open();
+					}),
+			);
 	}
 }

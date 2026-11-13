@@ -41,6 +41,12 @@ export default class CustomBulletsPlugin extends Plugin {
 		normalizeSettings(this.settings);
 	}
 
+	/** Back to what a fresh install has. */
+	async resetSettings() {
+		this.settings = structuredClone(DEFAULT_SETTINGS);
+		await this.saveSettings();
+	}
+
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.applyStyles();
