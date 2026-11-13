@@ -121,7 +121,7 @@ export function buildDynamicCss(settings: CustomBulletsSettings): string {
 		if (icon) {
 			// The symbol stays in the text for copying and screen readers; the shape is painted over it.
 			rules.push(
-				`.${SIGNIFIER_CLASS}[data-signifier=${value}] { display: inline-block; width: 1em; height: 1em; overflow: hidden; vertical-align: -0.14em; color: transparent; background-color: ${color}; -webkit-mask: ${icon} center / 100% no-repeat; mask: ${icon} center / 100% no-repeat; }`,
+				`.${SIGNIFIER_CLASS}[data-signifier=${value}] { height: 1em; overflow: hidden; vertical-align: -0.14em; color: transparent; background-color: ${color}; -webkit-mask: ${icon} center / 1em 1em no-repeat; mask: ${icon} center / 1em 1em no-repeat; }`,
 			);
 		} else {
 			rules.push(`.${SIGNIFIER_CLASS}[data-signifier=${value}] { color: ${color}; }`);

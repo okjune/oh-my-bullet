@@ -144,6 +144,9 @@ export function signifierError(signifiers: SignifierDef[], index: number): strin
 	if (!item) return null;
 	if (item.char.length !== 1 || /\s/.test(item.char)) return 'Enter a character';
 	if (signifiers.findIndex((s) => s.char === item.char) !== index) return `"${item.char}" is already used above`;
+	// After a checkbox these start a block of their own, which reading view then draws on a new line.
+	if (item.char === '#') return 'Markdown reads "#" here as a heading; choose another character';
+	if (item.char === '>') return 'Markdown reads ">" here as a quote; choose another character';
 	return null;
 }
 

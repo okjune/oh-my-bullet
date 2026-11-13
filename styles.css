@@ -5,7 +5,11 @@
  * generates them at runtime. Only the fixed parts live here.
  */
 
+/* Every signifier takes the same width, so the text after it starts in one column. */
 .custom-bullets-signifier {
+  display: inline-block;
+  width: 1.15em;
+  text-align: center;
   font-family: var(--font-interface);
   font-weight: 800;
 }
