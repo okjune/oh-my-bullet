@@ -102,27 +102,36 @@ export function normalizeSettings(settings: CustomBulletsSettings) {
 	}
 }
 
+/** Why a bullet row is ignored, or null when it is fine. */
+export function bulletError(bullets: BulletDef[], index: number): string | null {
+	const item = bullets[index];
+	if (!item) return null;
+	if (item.char.length !== 1) return 'Enter a character';
+	if (bullets.findIndex((b) => b.char === item.char) !== index) return `"${item.char === ' ' ? 'space' : item.char}" is already used above`;
+	if (item.symbol.length === 0) return 'Enter a symbol';
+	return null;
+}
+
+/** Why a signifier row is ignored, or null when it is fine. */
+export function signifierError(signifiers: SignifierDef[], index: number): string | null {
+	const item = signifiers[index];
+	if (!item) return null;
+	if (item.char.length !== 1 || /\s/.test(item.char)) return 'Enter a character';
+	if (signifiers.findIndex((s) => s.char === item.char) !== index) return `"${item.char}" is already used above`;
+	return null;
+}
+
 /** The open task and the done task always exist; their characters are fixed. */
 const LOCKED_CHARS = new Set([' ', 'x']);
 
 /** Entries that are complete and not duplicated; the rest are ignored until fixed. */
 export function validBullets(settings: CustomBulletsSettings): BulletDef[] {
-	const seen = new Set<string>();
-	return settings.bullets.filter((b) => {
-		if (b.char.length !== 1 || b.symbol.length === 0 || seen.has(b.char)) return false;
-		seen.add(b.char);
-		return true;
-	});
+	return settings.bullets.filter((_, index) => bulletError(settings.bullets, index) === null);
 }
 
 export function validSignifiers(settings: CustomBulletsSettings): SignifierDef[] {
-	const seen = new Set<string>();
 	return settings.signifiers
-		.filter((s) => {
-			if (s.char.length !== 1 || /\s/.test(s.char) || seen.has(s.char)) return false;
-			seen.add(s.char);
-			return true;
-		})
+		.filter((_, index) => signifierError(settings.signifiers, index) === null)
 		// Settings saved by an earlier version have no symbol or position.
 		.map((s) => ({ ...s, symbol: s.symbol || (s.char === '*' ? '✱' : s.char), position: s.position ?? 'right' }));
 }
@@ -196,19 +205,31 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 			{ text: '' },
 		]);
 
+		// Each row re-checks itself whenever any row changes, since a duplicate
+		// depends on the rows above it.
+		const refreshers: (() => void)[] = [];
+		const refreshAll = () => refreshers.forEach((refresh) => refresh());
+
 		settings.bullets.forEach((item, index) => {
 			const locked = LOCKED_CHARS.has(item.char);
 			const row = new Setting(containerEl).setClass('custom-bullets-row').setClass('custom-bullets-bullets');
 			// Every row is labelled with what the user types, so the rows line up.
-			const label = () => `- [${item.char === '' ? ' ' : item.char}]`;
-			row.setName(label());
+			const label = () => (item.char === '' ? 'New' : `- [${item.char}]`);
+			// The reason a row is ignored goes on its own line under the row, so the columns stay put.
+			const errorEl = row.settingEl.createDiv({ cls: 'custom-bullets-error' });
+			refreshers.push(() => {
+				const error = bulletError(settings.bullets, index);
+				row.setName(label());
+				errorEl.setText(error ?? '');
+				row.settingEl.toggleClass('custom-bullets-invalid', error !== null);
+			});
 			row.addText((text) => {
-				text.setPlaceholder('Char')
+				text.setPlaceholder(locked ? '' : 'Char')
 					.setValue(item.char === ' ' ? '' : item.char)
 					.setDisabled(locked)
 					.onChange(async (value) => {
 						item.char = value;
-						row.setName(label());
+						refreshAll();
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.maxLength = 1;
@@ -220,6 +241,7 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 					.setValue(item.symbol)
 					.onChange(async (value) => {
 						item.symbol = value;
+						refreshAll();
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.maxLength = 2;
@@ -271,6 +293,8 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 			);
 		});
 
+		refreshAll();
+
 		new Setting(containerEl).addButton((button) =>
 			button.setButtonText('Add bullet').onClick(async () => {
 				settings.bullets.push(bullet('', ''));
@@ -292,16 +316,25 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 			{ text: '' },
 		]);
 
+		const signifierRefreshers: (() => void)[] = [];
+		const refreshSignifiers = () => signifierRefreshers.forEach((refresh) => refresh());
+
 		settings.signifiers.forEach((signifier, index) => {
 			const row = new Setting(containerEl).setClass('custom-bullets-row').setClass('custom-bullets-signifiers');
-			const label = () => `- [ ] ${signifier.char === '' ? ' ' : signifier.char} text`;
-			row.setName(label());
+			const label = () => (signifier.char === '' ? 'New' : `- [ ] ${signifier.char} text`);
+			const errorEl = row.settingEl.createDiv({ cls: 'custom-bullets-error' });
+			signifierRefreshers.push(() => {
+				const error = signifierError(settings.signifiers, index);
+				row.setName(label());
+				errorEl.setText(error ?? '');
+				row.settingEl.toggleClass('custom-bullets-invalid', error !== null);
+			});
 			row.addText((text) => {
 				text.setPlaceholder('Char')
 					.setValue(signifier.char)
 					.onChange(async (value) => {
 						signifier.char = value;
-						row.setName(label());
+						refreshSignifiers();
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.maxLength = 1;
@@ -349,6 +382,8 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 					}),
 			);
 		});
+
+		refreshSignifiers();
 
 		new Setting(containerEl).addButton((button) =>
 			button.setButtonText('Add signifier').onClick(async () => {

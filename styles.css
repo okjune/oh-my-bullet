@@ -53,6 +53,24 @@
   justify-self: center;
 }
 
+/* A row that is ignored: says why on a line of its own, and marks the fields. */
+.custom-bullets-settings .custom-bullets-row {
+  flex-wrap: wrap;
+}
+.custom-bullets-settings .custom-bullets-error {
+  flex: 0 0 100%;
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  text-align: end;
+  padding-top: var(--size-2-2);
+}
+.custom-bullets-settings .custom-bullets-error:empty {
+  display: none;
+}
+.custom-bullets-settings .custom-bullets-invalid input[type='text'] {
+  border-color: var(--text-error);
+}
+
 /* Column labels */
 .custom-bullets-settings .custom-bullets-header {
   padding-block: 0.6em 0;
