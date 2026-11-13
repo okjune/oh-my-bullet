@@ -29,3 +29,38 @@ input.task-list-item-checkbox {
 .oh-my-bullet-signifier-hidden {
   display: none;
 }
+
+/* Settings: the preview is a block of sample lines under its label. */
+.oh-my-bullet-preview {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--size-4-2);
+}
+.oh-my-bullet-preview .setting-item-control {
+  display: none;
+}
+.oh-my-bullet-preview-lines {
+  /* The same sizes a note uses, so the preview is to scale. The list itself is laid out
+     by Obsidian's own rules for rendered Markdown: indent, spacing and guide lines. */
+  --checkbox-size: var(--font-text-size);
+  font-size: var(--font-text-size);
+  line-height: var(--line-height-normal);
+  /* Sample lines only: clicking them does nothing. */
+  pointer-events: none;
+}
+.oh-my-bullet-preview-lines > ul {
+  margin-block: 0;
+}
+/* A line's own style must not leak into its sub-tasks: strike the text, not the item. */
+.oh-my-bullet-preview-lines li {
+  text-decoration: none !important;
+}
+.oh-my-bullet-preview-lines li > .oh-my-bullet-preview-text {
+  text-decoration: var(--checklist-done-decoration, none);
+}
+/* Reading view sets these on the checkbox; the rule is scoped to notes, so repeat it. */
+.oh-my-bullet-preview-lines .task-list-item-checkbox {
+  position: relative;
+  top: 0.2em;
+  margin-inline-end: 0.6em;
+}

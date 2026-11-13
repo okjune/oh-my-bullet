@@ -9,6 +9,7 @@ import {
 	SettingDefinitionPage,
 } from 'obsidian';
 import type OhMyBulletPlugin from './main';
+import { SIGNIFIER_ATTR, SIGNIFIER_CLASS, SIGNIFIER_HIDDEN_CLASS } from './signifiers';
 import type { SignifierPosition } from './signifiers';
 
 /** Theme colors, so every choice follows light and dark mode. */
@@ -202,6 +203,96 @@ const COLOR_OPTIONS: Record<string, string> = Object.fromEntries(
 );
 const TEXT_COLOR_OPTIONS: Record<string, string> = { [DEFAULT_TEXT_COLOR]: 'Same as the text', ...COLOR_OPTIONS };
 
+/** One line of a preview: a bullet, optionally with a signifier, and some text. */
+interface PreviewLine {
+	bullet: BulletDef;
+	signifier?: SignifierDef;
+	text: string;
+	children?: PreviewLine[];
+}
+
+/** A line of the sample day, before it is matched against the user's bullets. */
+interface SampleLine {
+	char: string;
+	signifier?: string;
+	text: string;
+	children?: SampleLine[];
+}
+
+/**
+ * The overview preview: a day's log as someone might actually keep it, with
+ * sub-tasks, so the bullets are seen doing their job rather than listed.
+ */
+const SAMPLE_DAY: SampleLine[] = [
+	{ char: 'O', text: 'Morning standup' },
+	{ char: 'x', text: 'Reply to Mina about the budget' },
+	{
+		char: '/',
+		text: 'Draft the quarterly report',
+		children: [
+			{ char: 'x', text: 'Pull last quarter\'s numbers' },
+			{ char: ' ', signifier: '*', text: 'Write the summary' },
+			{ char: '-', text: 'Redo the charts in the old template' },
+		],
+	},
+	{ char: ' ', text: 'Call the landlord about the heating' },
+	{ char: '>', text: 'Renew passport' },
+	{ char: '<', text: 'Book the dentist' },
+	{ char: ' ', signifier: '!', text: 'Try a weekly review on Fridays' },
+	{ char: 'o', text: 'Team dinner at 7pm' },
+];
+
+/** What a bullet's own page shows, when the sample day has a line for it. */
+function sampleTextFor(char: string): string | undefined {
+	const find = (lines: SampleLine[]): string | undefined => {
+		for (const line of lines) {
+			if (line.char === char && !line.signifier) return line.text;
+			const inner = line.children ? find(line.children) : undefined;
+			if (inner) return inner;
+		}
+		return undefined;
+	};
+	return find(SAMPLE_DAY);
+}
+
+function capitalize(text: string): string {
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * Draw sample task lines with the same markup a note has in reading view, so the
+ * rules generated from the settings style them. What you see is what the notes get.
+ */
+function fillPreview(el: HTMLElement, lines: PreviewLine[]) {
+	el.empty();
+	appendPreviewList(el, lines);
+}
+
+function appendPreviewList(parent: HTMLElement, lines: PreviewLine[]) {
+	const list = parent.createEl('ul', { cls: 'contains-task-list has-list-bullet' });
+	for (const line of lines) {
+		const li = list.createEl('li', { cls: 'task-list-item' });
+		// Reading view marks the open task with an empty data-task.
+		li.dataset.task = line.bullet.char === ' ' ? '' : line.bullet.char;
+		const checkbox = li.createEl('input', { type: 'checkbox', cls: 'task-list-item-checkbox' });
+		checkbox.checked = line.bullet.char !== ' ';
+		checkbox.tabIndex = -1;
+		if (line.signifier) {
+			const span = li.createSpan({ cls: SIGNIFIER_CLASS, text: line.signifier.symbol || line.signifier.char });
+			span.dataset.signifier = line.signifier.char;
+			if (line.signifier.position !== 'right') {
+				li.setAttribute(SIGNIFIER_ATTR, line.signifier.char);
+				span.addClass(SIGNIFIER_HIDDEN_CLASS);
+			} else {
+				li.appendText(' ');
+			}
+		}
+		// The text sits in a span so a struck-through parent does not strike its children.
+		li.createSpan({ cls: 'oh-my-bullet-preview-text', text: line.text });
+		if (line.children && line.children.length > 0) appendPreviewList(li, line.children);
+	}
+}
+
 /**
  * The settings are declared, not drawn: Obsidian renders them, saves them and
  * indexes them for the settings search. Each bullet and signifier is an entry in
@@ -210,9 +301,69 @@ const TEXT_COLOR_OPTIONS: Record<string, string> = { [DEFAULT_TEXT_COLOR]: 'Same
 export class OhMyBulletSettingTab extends PluginSettingTab {
 	plugin: OhMyBulletPlugin;
 
+	/** Redraw functions of the previews currently on screen. */
+	private previews = new Set<() => void>();
+
 	constructor(app: App, plugin: OhMyBulletPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	/** A row that shows sample lines and redraws itself whenever a setting changes. */
+	private previewRow(lines: () => PreviewLine[]): SettingDefinitionItem {
+		return {
+			name: 'Preview',
+			searchable: false,
+			render: (setting) => {
+				setting.settingEl.addClass('oh-my-bullet-preview');
+				const el = setting.settingEl.createDiv({ cls: 'oh-my-bullet-preview-lines markdown-rendered show-indentation-guide' });
+				// The settings open in a window of their own, which has not been given the
+				// generated styles yet: it is not a workspace window, so no event announces it.
+				const win = el.ownerDocument.defaultView;
+				if (win) this.plugin.attachWindow(win);
+				const draw = () => fillPreview(el, lines());
+				draw();
+				this.previews.add(draw);
+				return () => this.previews.delete(draw);
+			},
+		};
+	}
+
+	private redrawPreviews() {
+		this.previews.forEach((draw) => draw());
+	}
+
+	/**
+	 * The sample day, drawn with the user's bullets. A line whose bullet or signifier
+	 * the user has removed is left out; anything the user has added follows at the end.
+	 */
+	private overviewLines(): PreviewLine[] {
+		const bullets = validBullets(this.plugin.settings);
+		const signifiers = validSignifiers(this.plugin.settings);
+		const usedBullets = new Set<string>();
+		const usedSignifiers = new Set<string>();
+
+		const resolve = (lines: SampleLine[]): PreviewLine[] =>
+			lines.flatMap((line) => {
+				const bullet = bullets.find((b) => b.char === line.char);
+				const signifier = line.signifier ? signifiers.find((sig) => sig.char === line.signifier) : undefined;
+				if (!bullet || (line.signifier && !signifier)) return [];
+				usedBullets.add(bullet.char);
+				if (signifier) usedSignifiers.add(signifier.char);
+				return [{ bullet, signifier, text: line.text, children: line.children ? resolve(line.children) : undefined }];
+			});
+
+		const lines = resolve(SAMPLE_DAY);
+		const task = bullets.find((b) => b.char === ' ') ?? bullets[0];
+		for (const bullet of bullets) {
+			if (!usedBullets.has(bullet.char)) lines.push({ bullet, text: capitalize(bullet.meaning || `[${bullet.char}]`) });
+		}
+		for (const signifier of signifiers) {
+			if (task && !usedSignifiers.has(signifier.char)) {
+				lines.push({ bullet: task, signifier, text: capitalize(signifier.meaning || signifier.char) });
+			}
+		}
+		return lines;
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
@@ -224,6 +375,7 @@ export class OhMyBulletSettingTab extends PluginSettingTab {
 		};
 
 		return [
+			this.previewRow(() => this.overviewLines()),
 			{
 				type: 'group',
 				heading: 'Changing a bullet',
@@ -351,6 +503,12 @@ export class OhMyBulletSettingTab extends PluginSettingTab {
 			displayValue: item.symbol,
 			status: error ? 'warning' : null,
 			items: [
+				this.previewRow(() => {
+					const current = this.plugin.settings.bullets[index];
+					return current && current.symbol
+						? [{ bullet: current, text: sampleTextFor(current.char) ?? capitalize(current.meaning || 'A line with this bullet') }]
+						: [];
+				}),
 				{
 					name: 'Character',
 					desc: locked
@@ -413,6 +571,19 @@ export class OhMyBulletSettingTab extends PluginSettingTab {
 			displayValue: item?.symbol || item?.char || '',
 			status: error ? 'warning' : null,
 			items: [
+				this.previewRow(() => {
+					const current = validSignifiers(this.plugin.settings).find((sig) => sig.char === this.plugin.settings.signifiers[index]?.char);
+					const bullets = validBullets(this.plugin.settings);
+					if (!current) return [];
+					// On an open task and on a done one, to show that it combines with any bullet.
+					return bullets
+						.filter((b) => b.char === ' ' || b.char === 'x')
+						.map((b) => ({
+							bullet: b,
+							signifier: current,
+							text: b.char === 'x' ? 'Reply to Mina about the budget' : 'Write the summary',
+						}));
+				}),
 				{
 					name: 'Character',
 					desc: 'The character typed right after the checkbox, as in "- [ ] * text".',
@@ -482,5 +653,6 @@ export class OhMyBulletSettingTab extends PluginSettingTab {
 		}
 		// Overriding this method replaces Obsidian's own save.
 		await this.plugin.saveSettings();
+		this.redrawPreviews();
 	}
 }

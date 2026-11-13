@@ -85,7 +85,7 @@ export default class OhMyBulletPlugin extends Plugin {
 	}
 
 	/** Give one window its stylesheet and its bullet handlers. Safe to call twice for the same window. */
-	private attachWindow(win: Window) {
+	attachWindow(win: Window) {
 		const doc = win.document;
 		if (this.sheets.has(doc)) return;
 		// A stylesheet can only be adopted by the document of the window that constructed it.
