@@ -23,8 +23,11 @@ class SignifierWidget extends WidgetType {
 		return other.char === this.char && other.symbol === this.symbol;
 	}
 
-	toDOM(): HTMLElement {
-		const span = createSpan({ cls: SIGNIFIER_CLASS, text: this.symbol });
+	toDOM(view: EditorView): HTMLElement {
+		// Built in the editor's own document, which is not the main one in a pop-out window.
+		const span = view.dom.doc.createElement('span');
+		span.addClass(SIGNIFIER_CLASS);
+		span.setText(this.symbol);
 		span.dataset.signifier = this.char;
 		return span;
 	}

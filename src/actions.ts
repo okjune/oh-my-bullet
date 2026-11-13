@@ -132,7 +132,7 @@ export function openMenuForCheckbox(
 			const current = view.state.doc.lineAt(Math.min(line.from, view.state.doc.length));
 			const next = change(current.text);
 			if (next !== current.text) view.dispatch({ changes: { from: current.from, to: current.to, insert: next } });
-		}).showAtPosition(position);
+		}).showAtPosition(position, checkbox.ownerDocument);
 		return true;
 	}
 
@@ -152,6 +152,6 @@ export function openMenuForCheckbox(
 			lines[lineNumber] = change(text);
 			return lines.join('\n');
 		});
-	}).showAtPosition(position);
+	}).showAtPosition(position, checkbox.ownerDocument);
 	return true;
 }

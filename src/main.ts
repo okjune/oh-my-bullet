@@ -23,19 +23,23 @@ import {
 
 export default class CustomBulletsPlugin extends Plugin {
 	settings: CustomBulletsSettings = DEFAULT_SETTINGS;
-	// A constructed stylesheet holds the rules generated from the settings.
-	private sheet: CSSStyleSheet | null = null;
+	// The rules generated from the settings live in a constructed stylesheet. A pop-out
+	// window is a document of its own and needs its own copy, so there is one per window.
+	private sheets = new Map<Document, CSSStyleSheet>();
 
 	async onload() {
 		await this.loadSettings();
 
-		const sheet = new CSSStyleSheet();
-		this.sheet = sheet;
-		document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-		this.register(() => {
-			document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== sheet);
+		this.attachWindow(window);
+		this.registerEvent(this.app.workspace.on('window-open', (_, win) => this.attachWindow(win)));
+		this.registerEvent(this.app.workspace.on('window-close', (_, win) => this.sheets.delete(win.document)));
+		// Pop-out windows that were already open when the plugin was switched on.
+		this.app.workspace.onLayoutReady(() => {
+			this.app.workspace.iterateAllLeaves((leaf) => {
+				const win = leaf.view.containerEl.ownerDocument.defaultView;
+				if (win) this.attachWindow(win);
+			});
 		});
-		this.applyStyles();
 
 		const getSignifiers = () => validSignifiers(this.settings);
 		this.registerMarkdownPostProcessor(createReadingProcessor(getSignifiers));
@@ -44,7 +48,6 @@ export default class CustomBulletsPlugin extends Plugin {
 
 		this.addSettingTab(new CustomBulletsSettingTab(this.app, this));
 
-		this.registerBulletMenu();
 		this.registerCommands();
 
 		// Method B: when the user leaves a note, bring its legend property up to date.
@@ -81,14 +84,31 @@ export default class CustomBulletsPlugin extends Plugin {
 		normalizeSettings(this.settings);
 	}
 
+	/** Give one window its stylesheet and its bullet handlers. Safe to call twice for the same window. */
+	private attachWindow(win: Window) {
+		const doc = win.document;
+		if (this.sheets.has(doc)) return;
+		// A stylesheet can only be adopted by the document of the window that constructed it.
+		const sheet = new (win as Window & { CSSStyleSheet: typeof CSSStyleSheet }).CSSStyleSheet();
+		sheet.replaceSync(buildDynamicCss(this.settings));
+		doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet];
+		this.sheets.set(doc, sheet);
+		this.register(() => {
+			doc.adoptedStyleSheets = doc.adoptedStyleSheets.filter((s) => s !== sheet);
+		});
+		this.registerBulletMenu(doc);
+	}
+
 	/** Right-click a bullet, or long-press it on a touch screen, to change it or its signifier. */
-	private registerBulletMenu() {
+	private registerBulletMenu(document: Document) {
 		// On a phone the checkbox sits in a label about twice its width, and a finger
 		// lands on the label as often as on the checkbox itself.
 		const checkboxOf = (target: EventTarget | null): HTMLElement | null => {
-			if (!(target instanceof HTMLElement)) return null;
-			if (target.matches('input.task-list-item-checkbox')) return target;
-			return target.closest('label.task-list-label')?.querySelector<HTMLElement>('input.task-list-item-checkbox') ?? null;
+			// instanceOf, not instanceof: an element in a pop-out window belongs to another realm.
+			const node = target as Node | null;
+			if (!node || typeof node.instanceOf !== 'function' || !node.instanceOf(HTMLElement)) return null;
+			if (node.matches('input.task-list-item-checkbox')) return node;
+			return node.closest('label.task-list-label')?.querySelector<HTMLElement>('input.task-list-item-checkbox') ?? null;
 		};
 
 		// Obsidian turns a long press into a contextmenu event, so one handler serves
@@ -184,8 +204,11 @@ export default class CustomBulletsPlugin extends Plugin {
 				const editorEl = ctx.contentEl.querySelector<HTMLElement>('.cm-editor');
 				const view = editorEl ? EditorView.findFromDOM(editorEl) : null;
 				const coords = view?.coordsAtPos(editor.posToOffset(cursor));
+				const doc = ctx.contentEl.ownerDocument;
+				const win = doc.defaultView ?? window;
 				menu.showAtPosition(
-					coords ? { x: coords.left, y: coords.bottom } : { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+					coords ? { x: coords.left, y: coords.bottom } : { x: win.innerWidth / 2, y: win.innerHeight / 2 },
+					doc,
 				);
 			}),
 		});
@@ -262,6 +285,7 @@ export default class CustomBulletsPlugin extends Plugin {
 	}
 
 	private applyStyles() {
-		this.sheet?.replaceSync(buildDynamicCss(this.settings));
+		const css = buildDynamicCss(this.settings);
+		for (const sheet of this.sheets.values()) sheet.replaceSync(css);
 	}
 }
