@@ -38,6 +38,14 @@ const ICONS: Record<string, string> = {
 	'●': svg(`<circle cx='12' cy='12' r='9.5' fill='black' stroke='none'/>`),
 };
 
+/**
+ * Signifier symbols drawn as shapes, for the same reason as the bullets: the heavy
+ * asterisk is bold on a Mac and a thin little star on an iPhone.
+ */
+const SIGNIFIER_ICONS: Record<string, string> = {
+	'✱': svg(`<path d='M12 4.5v15M5.5 8.25l13 7.5M5.5 15.75l13-7.5'/>`),
+};
+
 const CHECKBOX = 'input.task-list-item-checkbox';
 
 /** Selectors for the checkbox of one bullet, in Live Preview and in reading view. */
@@ -109,7 +117,15 @@ export function buildDynamicCss(settings: CustomBulletsSettings): string {
 	for (const signifier of validSignifiers(settings)) {
 		const value = cssString(signifier.char);
 		const color = colorOf(signifier.color);
-		rules.push(`.${SIGNIFIER_CLASS}[data-signifier=${value}] { color: ${color}; }`);
+		const icon = SIGNIFIER_ICONS[signifier.symbol];
+		if (icon) {
+			// The symbol stays in the text for copying and screen readers; the shape is painted over it.
+			rules.push(
+				`.${SIGNIFIER_CLASS}[data-signifier=${value}] { display: inline-block; width: 1em; height: 1em; overflow: hidden; vertical-align: -0.14em; color: transparent; background-color: ${color}; -webkit-mask: ${icon} center / 100% no-repeat; mask: ${icon} center / 100% no-repeat; }`,
+			);
+		} else {
+			rules.push(`.${SIGNIFIER_CLASS}[data-signifier=${value}] { color: ${color}; }`);
+		}
 
 		const position = signifier.position ?? 'right';
 		if (position === 'right') continue;
@@ -123,9 +139,10 @@ export function buildDynamicCss(settings: CustomBulletsSettings): string {
 			position === 'left'
 				? 'right: 100%; margin-right: 0.3em; top: 50%; transform: translateY(-50%);'
 				: 'left: 50%; top: 50%; transform: translate(-50%, -50%);';
-		rules.push(
-			`${before} { content: ${cssString(signifier.symbol)}; position: absolute; ${place} z-index: 1; display: flex; align-items: center; justify-content: center; height: var(--checkbox-size); color: ${color}; font-family: var(--font-interface); font-size: var(--checkbox-size); font-weight: 800; line-height: 1; white-space: nowrap; pointer-events: none; }`,
-		);
+		const drawn = icon
+			? `content: ""; width: var(--checkbox-size); height: var(--checkbox-size); background-color: ${color}; -webkit-mask: ${icon} center / 100% no-repeat; mask: ${icon} center / 100% no-repeat;`
+			: `content: ${cssString(signifier.symbol)}; display: flex; align-items: center; justify-content: center; height: var(--checkbox-size); color: ${color}; font-family: var(--font-interface); font-size: var(--checkbox-size); font-weight: 800; line-height: 1; white-space: nowrap;`;
+		rules.push(`${before} { position: absolute; ${place} z-index: 1; pointer-events: none; ${drawn} }`);
 	}
 
 	return rules.join('\n');
