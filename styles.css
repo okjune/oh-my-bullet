@@ -53,6 +53,28 @@
   justify-self: center;
 }
 
+/* Meanings: one row per bullet or signifier, in the AI agents section. */
+.custom-bullets-settings .custom-bullets-meaning-row {
+  align-items: center;
+  border-top: none;
+  padding-block: 0.2em;
+}
+.custom-bullets-settings .custom-bullets-meaning-row .setting-item-info {
+  flex: 0 0 9em;
+}
+.custom-bullets-settings .custom-bullets-meaning-row .setting-item-name {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: pre;
+}
+.custom-bullets-settings .custom-bullets-meaning-row .setting-item-control {
+  flex: 1 1 auto;
+}
+.custom-bullets-settings .custom-bullets-meaning-row input[type='text'] {
+  width: 100%;
+}
+
 /* A row that is ignored: says why on a line of its own, and marks the fields. */
 .custom-bullets-settings .custom-bullets-row {
   flex-wrap: wrap;

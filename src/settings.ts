@@ -23,6 +23,8 @@ export interface BulletDef {
 	char: string;
 	/** What is drawn in place of the checkbox. */
 	symbol: string;
+	/** What the bullet means, in words. Written into the legend for AI agents. */
+	meaning: string;
 	/** Color of the bullet itself. */
 	color: string;
 	/** Color of the line's text; `default` leaves it alone. */
@@ -48,6 +50,7 @@ function bullet(char: string, symbol: string, overrides: Partial<BulletDef> = {}
 	return {
 		char,
 		symbol,
+		meaning: '',
 		color: 'text',
 		textColor: DEFAULT_TEXT_COLOR,
 		strike: false,
@@ -63,30 +66,41 @@ export interface SignifierDef {
 	char: string;
 	/** What is drawn in place of the character. */
 	symbol: string;
+	/** What the signifier means, in words. Written into the legend for AI agents. */
+	meaning: string;
 	color: string;
 	/** Left of the bullet, on top of it, or right of it (inline, before the text). */
 	position: SignifierPosition;
 }
 
+/** `ask` until the user has answered the first-run question. */
+export type AgentLegendMode = 'ask' | 'on' | 'off';
+
 export interface CustomBulletsSettings {
 	bullets: BulletDef[];
 	signifiers: SignifierDef[];
+	/** Keep a legend in the vault's agent instruction files (AGENTS.md, CLAUDE.md). */
+	agentLegend: AgentLegendMode;
+	/** Also write a legend into the properties of each note that uses the notation. */
+	noteLegend: boolean;
 }
 
 export const DEFAULT_SETTINGS: CustomBulletsSettings = {
 	bullets: [
-		bullet(' ', '•'),
-		bullet('x', '×'),
-		bullet('>', '>'),
-		bullet('<', '<'),
-		bullet('-', '–', { color: 'faint', textColor: 'faint', strike: true }),
-		bullet('o', '○'),
-		bullet('O', '●'),
+		bullet(' ', '•', { meaning: 'task, not done' }),
+		bullet('x', '×', { meaning: 'task, done' }),
+		bullet('>', '>', { meaning: 'task migrated to a later note' }),
+		bullet('<', '<', { meaning: 'task scheduled for a future date' }),
+		bullet('-', '–', { meaning: 'no longer relevant, dropped', color: 'faint', textColor: 'faint', strike: true }),
+		bullet('o', '○', { meaning: 'event' }),
+		bullet('O', '●', { meaning: 'event that has taken place' }),
 	],
 	signifiers: [
-		{ char: '*', symbol: '✱', color: 'red', position: 'right' },
-		{ char: '!', symbol: '!', color: 'orange', position: 'right' },
+		{ char: '*', symbol: '✱', meaning: 'priority', color: 'red', position: 'right' },
+		{ char: '!', symbol: '!', meaning: 'inspiration, an idea worth keeping', color: 'orange', position: 'right' },
 	],
+	agentLegend: 'ask',
+	noteLegend: false,
 };
 
 /** Fill in what settings saved by an earlier version do not have. */
@@ -94,12 +108,16 @@ export function normalizeSettings(settings: CustomBulletsSettings) {
 	settings.bullets = settings.bullets.map((b) => {
 		// Strikethrough used to fade the text as well.
 		const textColor = b.textColor ?? (b.strike ? 'faint' : DEFAULT_TEXT_COLOR);
-		return bullet(b.char, b.symbol, { ...b, textColor });
+		const meaning = b.meaning ?? DEFAULT_SETTINGS.bullets.find((d) => d.char === b.char)?.meaning ?? '';
+		return bullet(b.char, b.symbol, { ...b, textColor, meaning });
 	});
 	for (const signifier of settings.signifiers) {
 		if (!signifier.symbol) signifier.symbol = signifier.char === '*' ? '✱' : signifier.char;
 		signifier.position ??= 'right';
+		signifier.meaning ??= DEFAULT_SETTINGS.signifiers.find((d) => d.char === signifier.char)?.meaning ?? '';
 	}
+	settings.agentLegend ??= 'ask';
+	settings.noteLegend ??= false;
 }
 
 /** Why a bullet row is ignored, or null when it is fine. */
@@ -193,7 +211,7 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Bullets')
-			.setDesc('For each bullet: the character between the brackets, the symbol drawn in its place, the bullet color, and how the text of the line looks (color, strikethrough, underline, bold, italic).')
+			.setDesc('For each bullet: the character between the brackets, the symbol drawn in its place, the bullet color, and how the text of the line looks.')
 			.setHeading();
 
 		addHeaderRow(containerEl, 'bullets', [
@@ -387,11 +405,62 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).addButton((button) =>
 			button.setButtonText('Add signifier').onClick(async () => {
-				settings.signifiers.push({ char: '', symbol: '', color: 'text', position: 'right' });
+				settings.signifiers.push({ char: '', symbol: '', meaning: '', color: 'text', position: 'right' });
 				await this.plugin.saveSettings();
 				this.display();
 			}),
 		);
+
+		new Setting(containerEl)
+			.setName('AI agents')
+			.setDesc('Agents read the raw text of your notes, not the symbols. A legend built from the meanings above tells them what each bullet and signifier stands for.')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Keep a legend for AI agents')
+			.setDesc('Maintains a marked section in AGENTS.md and CLAUDE.md at the top of the vault. If neither file exists, AGENTS.md is created. The rest of those files is never touched.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.agentLegend === 'on').onChange(async (value) => {
+					settings.agentLegend = value ? 'on' : 'off';
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName('Also add a legend to each note')
+			.setDesc('Writes a "bullet-legend" property into notes that use bullets or signifiers beyond the plain task and done, so the meaning travels with the note. Updated when you leave the note.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.noteLegend).onChange(async (value) => {
+					settings.noteLegend = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName('What each one means')
+			.setDesc('The legend is built from these descriptions. A bullet or signifier without one is left out of the legend.')
+			.setClass('custom-bullets-meanings-intro');
+
+		const addMeaningRow = (label: string, item: { meaning: string }) => {
+			new Setting(containerEl)
+				.setName(label)
+				.setClass('custom-bullets-meaning-row')
+				.addText((text) => {
+					text.setPlaceholder('A few words, such as "waiting for a reply"')
+						.setValue(item.meaning)
+						.onChange(async (value) => {
+							item.meaning = value.trim();
+							await this.plugin.saveSettings();
+						});
+					text.inputEl.setAttr('aria-label', `Meaning of ${label}`);
+				});
+		};
+		settings.bullets.forEach((item, index) => {
+			if (bulletError(settings.bullets, index) === null) addMeaningRow(`- [${item.char}]`, item);
+		});
+		settings.signifiers.forEach((item, index) => {
+			if (signifierError(settings.signifiers, index) === null) addMeaningRow(`- [ ] ${item.char} text`, item);
+		});
 
 		new Setting(containerEl)
 			.setName('Reset to defaults')
