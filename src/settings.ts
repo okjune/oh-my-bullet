@@ -1,4 +1,4 @@
-import { App, Modal, PluginSettingTab, Setting } from 'obsidian';
+import { App, Modal, Platform, PluginSettingTab, Setting } from 'obsidian';
 import type CustomBulletsPlugin from './main';
 import type { SignifierPosition } from './signifiers';
 
@@ -76,9 +76,14 @@ export interface SignifierDef {
 /** `ask` until the user has answered the first-run question. */
 export type AgentLegendMode = 'ask' | 'on' | 'off';
 
+/** What a short tap or click on a bullet does. */
+export type TapAction = 'none' | 'toggle' | 'menu';
+
 export interface CustomBulletsSettings {
 	bullets: BulletDef[];
 	signifiers: SignifierDef[];
+	/** A stray tap should not change a task, so the default is to do nothing. */
+	tapAction: TapAction;
 	/** Keep a legend in the vault's agent instruction files (AGENTS.md, CLAUDE.md). */
 	agentLegend: AgentLegendMode;
 	/** Also write a legend into the properties of each note that uses the notation. */
@@ -100,6 +105,7 @@ export const DEFAULT_SETTINGS: CustomBulletsSettings = {
 		{ char: '*', symbol: '✱', meaning: 'priority', color: 'red', position: 'right' },
 		{ char: '!', symbol: '!', meaning: 'inspiration, an idea worth keeping', color: 'orange', position: 'right' },
 	],
+	tapAction: 'none',
 	agentLegend: 'ask',
 	noteLegend: false,
 };
@@ -117,6 +123,7 @@ export function normalizeSettings(settings: CustomBulletsSettings) {
 		signifier.position ??= 'right';
 		signifier.meaning ??= DEFAULT_SETTINGS.signifiers.find((d) => d.char === signifier.char)?.meaning ?? '';
 	}
+	settings.tapAction ??= 'none';
 	settings.agentLegend ??= 'ask';
 	settings.noteLegend ??= false;
 }
@@ -209,6 +216,46 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 		const { settings } = this.plugin;
 		containerEl.empty();
 		containerEl.addClass('custom-bullets-settings');
+
+		// How to change a bullet, worded for the device in hand.
+		new Setting(containerEl).setName('Changing a bullet').setHeading();
+		const mobile = Platform.isMobile;
+		new Setting(containerEl)
+			.setName(mobile ? 'Tapping a bullet' : 'Clicking a bullet')
+			.setDesc(
+				mobile
+					? 'What a short tap does. Nothing, unless you choose otherwise, so a stray tap never changes a task.'
+					: 'What a plain click does. Nothing, unless you choose otherwise, so a stray click never changes a task.',
+			)
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption('none', 'Do nothing')
+					.addOption('toggle', 'Mark the task done')
+					.addOption('menu', 'Open the menu')
+					.setValue(settings.tapAction)
+					.onChange(async (value) => {
+						settings.tapAction = value as TapAction;
+						await this.plugin.saveSettings();
+					}),
+			);
+		const tips: [string, string][] = mobile
+			? [
+					['Touch and hold', 'Opens a menu with every bullet and signifier.'],
+					[
+						'From the toolbar',
+						'Add "Custom Bullets: Choose a bullet for this line" to the mobile toolbar (search these settings for "toolbar"). The button opens the same menu for the line you are typing on, so you do not have to hit the bullet.',
+					],
+				]
+			: [
+					['Right-click', 'Opens a menu with every bullet and signifier.'],
+					[
+						'From the keyboard',
+						'Give "Custom Bullets: Choose a bullet for this line" a hotkey to open the same menu for the line the cursor is on. Each bullet and signifier also has a command of its own.',
+					],
+				];
+		for (const [name, description] of tips) {
+			new Setting(containerEl).setName(name).setDesc(description).setClass('custom-bullets-tip');
+		}
 
 		new Setting(containerEl)
 			.setName('Bullets')

@@ -1,6 +1,6 @@
 {
 	"name": "custom-bullets",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Turn task checkboxes into paper-style bullets and combine them freely with signifiers.",
 	"main": "main.js",
 	"type": "module",

@@ -1,4 +1,5 @@
 import { MarkdownPostProcessorContext } from 'obsidian';
+import { readingOrigins } from './actions';
 import {
 	SIGNIFIER_ATTR,
 	SIGNIFIER_CLASS,
@@ -108,7 +109,6 @@ export function createReadingProcessor(getSignifiers: () => Signifier[]) {
 		const signifiers = getSignifiers();
 		const taskLine = buildTaskLineRegex(signifiers);
 		const leadingText = buildLeadingTextRegex(signifiers);
-		if (!taskLine || !leadingText) return;
 
 		const items = el.querySelectorAll<HTMLElement>('li.task-list-item');
 		if (items.length === 0) return;
@@ -117,10 +117,14 @@ export function createReadingProcessor(getSignifiers: () => Signifier[]) {
 		const lines = section ? section.text.split('\n') : null;
 
 		items.forEach((li) => {
-			if (li.querySelector(`:scope > .${SIGNIFIER_CLASS}, :scope > p > .${SIGNIFIER_CLASS}`)) return;
 			const checkbox = findCheckbox(li);
 			if (!checkbox) return;
+			// Remember where this checkbox comes from, for the right-click menu.
+			const lineOffset = Number(li.dataset.line);
+			if (!Number.isNaN(lineOffset)) readingOrigins.set(checkbox, { ctx, section: el, offset: lineOffset });
 
+			if (!taskLine || !leadingText) return;
+			if (li.querySelector(`:scope > .${SIGNIFIER_CLASS}, :scope > p > .${SIGNIFIER_CLASS}`)) return;
 			if (markLeadingText(checkbox, leadingText, signifiers)) {
 				moveToBullet(li, signifiers);
 				return;
