@@ -88,6 +88,7 @@ export interface CustomBulletsSettings {
 export const DEFAULT_SETTINGS: CustomBulletsSettings = {
 	bullets: [
 		bullet(' ', '•', { meaning: 'task, not done' }),
+		bullet('/', '/', { meaning: 'task in progress' }),
 		bullet('x', '×', { meaning: 'task, done' }),
 		bullet('>', '>', { meaning: 'task migrated to a later note' }),
 		bullet('<', '<', { meaning: 'task scheduled for a future date' }),

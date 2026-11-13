@@ -28,6 +28,8 @@ const ICONS: Record<string, string> = {
 	'•': svg(`<circle cx='12' cy='12' r='3.6' fill='black' stroke='none'/>`),
 	'×': svg(`<path d='M6.5 6.5l11 11M17.5 6.5l-11 11'/>`),
 	'x': svg(`<path d='M6.5 6.5l11 11M17.5 6.5l-11 11'/>`),
+	// One stroke of the cross: started, not finished.
+	'/': svg(`<path d='M17.5 6.5l-11 11'/>`),
 	'>': svg(`<path d='M9 6l6 6-6 6'/>`),
 	'<': svg(`<path d='M15 6l-6 6 6 6'/>`),
 	'–': svg(`<path d='M6 12h12'/>`),

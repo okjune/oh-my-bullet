@@ -9,6 +9,7 @@ Turn task checkboxes into paper-style bullets, and combine them freely with sign
 | You type | Shown as | Meaning |
 | --- | --- | --- |
 | `- [ ]` | `•` | Task |
+| `- [/]` | `/` | In progress |
 | `- [x]` | `×` | Done |
 | `- [>]` | `>` | Migrated |
 | `- [<]` | `<` | Scheduled |
