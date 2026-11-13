@@ -1,0 +1,9 @@
+{
+	"id": "custom-bullets",
+	"name": "Custom Bullets",
+	"version": "0.1.0",
+	"minAppVersion": "1.5.0",
+	"description": "Turn task checkboxes into paper-style bullets and combine them freely with signifiers.",
+	"author": "June",
+	"isDesktopOnly": false
+}

@@ -1,0 +1,119 @@
+body {
+  --checklist-done-decoration: none;          /* 취소선 제거 */
+  --checklist-done-color: var(--text-normal); /* 글자색이 흐려지지 않게 (선택) */
+}
+
+/* ============================================================
+   불렛 저널 기호
+   - [ ] 할 일 (점) - [x] 완료 (×)
+   - [>] 이동       - [<] 예정       - [-] 무의미
+   - [o] 이벤트     - [O] 지나간 이벤트
+   보조 기호는 체크박스 뒤에 $로 감싸서 씁니다.
+   - [ ] $*$ 우선순위      - [ ] $!$ 영감
+   ============================================================ */
+
+/* [ ] 할 일: 상자 대신 점 */
+input.task-list-item-checkbox:not(:checked) {
+  --checkbox-border-color: transparent;
+  --checkbox-border-color-hover: transparent;
+  background-image: radial-gradient(circle, var(--text-normal) 0 calc(var(--checkbox-size) * 0.19), transparent calc(var(--checkbox-size) * 0.22));
+}
+
+/* [x] 완료: 상자 없이 × */
+:is(input:is([data-task="x"], [data-task="X"]), li:is([data-task="x"], [data-task="X"]) > input, li:is([data-task="x"], [data-task="X"]) > p > input):checked {
+  --checkbox-color: transparent;
+  --checkbox-color-hover: transparent;
+  --checkbox-marker-color: var(--text-normal);
+}
+:is(input:is([data-task="x"], [data-task="X"]), li:is([data-task="x"], [data-task="X"]) > input, li:is([data-task="x"], [data-task="X"]) > p > input):checked::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E");
+  -webkit-mask-size: 90%;
+  -webkit-mask-position: center;
+}
+
+/* 공통: 아이콘 크기와 위치 */
+:is(input, li > input, li > p > input):is([data-task=">"], [data-task="<"], [data-task="-"]):checked::after,
+li:is([data-task=">"], [data-task="<"], [data-task="-"]) > :is(input, p > input):checked::after {
+  -webkit-mask-size: 90%;
+  -webkit-mask-position: center;
+}
+
+/* [>] 이동: 상자 없이 > */
+:is(input[data-task=">"], li[data-task=">"] > input, li[data-task=">"] > p > input):checked {
+  --checkbox-color: transparent;
+  --checkbox-color-hover: transparent;
+  --checkbox-marker-color: var(--text-normal);
+}
+:is(input[data-task=">"], li[data-task=">"] > input, li[data-task=">"] > p > input):checked::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
+}
+
+/* [<] 예정: 상자 없이 < */
+:is(input[data-task="<"], li[data-task="<"] > input, li[data-task="<"] > p > input):checked {
+  --checkbox-color: transparent;
+  --checkbox-color-hover: transparent;
+  --checkbox-marker-color: var(--text-normal);
+}
+:is(input[data-task="<"], li[data-task="<"] > input, li[data-task="<"] > p > input):checked::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 6l-6 6 6 6'/%3E%3C/svg%3E");
+}
+
+/* [-] 무의미: 상자 없이 흐린 가로줄 + 글자에 취소선 */
+:is(input[data-task="-"], li[data-task="-"] > input, li[data-task="-"] > p > input):checked {
+  --checkbox-color: transparent;
+  --checkbox-color-hover: transparent;
+  --checkbox-marker-color: var(--text-faint);
+}
+:is(input[data-task="-"], li[data-task="-"] > input, li[data-task="-"] > p > input):checked::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+.HyperMD-task-line[data-task="-"],
+li.task-list-item[data-task="-"] {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+/* [o] 이벤트: 속이 빈 동그라미 */
+:is(input[data-task="o"], li[data-task="o"] > input, li[data-task="o"] > p > input):checked {
+  --checkbox-color: transparent;
+  --checkbox-color-hover: transparent;
+  border-radius: 50%;
+  border-color: var(--text-muted) !important;
+}
+:is(input[data-task="o"], li[data-task="o"] > input, li[data-task="o"] > p > input):checked::after {
+  display: none;
+}
+
+/* [O] 지나간 이벤트: 속을 채운 동그라미 (대문자 O) */
+:is(input[data-task="O"], li[data-task="O"] > input, li[data-task="O"] > p > input):checked {
+  --checkbox-color: var(--text-muted);
+  --checkbox-color-hover: var(--text-muted);
+  border-radius: 50%;
+}
+:is(input[data-task="O"], li[data-task="O"] > input, li[data-task="O"] > p > input):checked::after {
+  display: none;
+}
+
+/* ============================================================
+   보조 기호: $*$ 우선순위, $!$ 영감
+   수식 문법을 빌려 쓰며, 다른 수식에는 영향이 없습니다.
+   ============================================================ */
+span.math:has(mjx-math[data-latex="*"]) mjx-container,
+span.math:has(mjx-math[data-latex="!"]) mjx-container {
+  display: none;
+}
+
+/* $*$ 우선순위: 빨간 별표 */
+span.math:has(mjx-math[data-latex="*"])::before {
+  content: "✱";
+  color: var(--color-red);
+  font-weight: 700;
+}
+
+/* $!$ 영감: 주황 느낌표 */
+span.math:has(mjx-math[data-latex="!"])::before {
+  content: "!";
+  color: var(--color-orange);
+  font-weight: 800;
+  padding: 0 0.15em;
+}
