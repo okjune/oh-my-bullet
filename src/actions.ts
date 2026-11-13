@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { App, Editor, MarkdownPostProcessorContext, Menu, TFile } from 'obsidian';
-import { BulletDef, CustomBulletsSettings, SignifierDef, validBullets, validSignifiers } from './settings';
+import { BulletDef, OhMyBulletSettings, SignifierDef, validBullets, validSignifiers } from './settings';
 
 const LIST_PREFIX = /^(\s*(?:[-*+]|\d+[.)])\s)/;
 const TASK_PREFIX = /^(\s*(?:[-*+]|\d+[.)])\s\[)(.)(\]\s?)/;
@@ -56,7 +56,7 @@ function signifierLabel(signifier: SignifierDef): string {
 
 /** The menu for one task line. `apply` receives a function that rewrites the line. */
 export function buildBulletMenu(
-	settings: CustomBulletsSettings,
+	settings: OhMyBulletSettings,
 	line: string,
 	apply: (change: (line: string) => string) => void,
 ): Menu {
@@ -118,7 +118,7 @@ export const readingOrigins = new WeakMap<HTMLElement, ReadingOrigin>();
  */
 export function openMenuForCheckbox(
 	app: App,
-	settings: CustomBulletsSettings,
+	settings: OhMyBulletSettings,
 	checkbox: HTMLElement,
 	position: { x: number; y: number },
 ): boolean {

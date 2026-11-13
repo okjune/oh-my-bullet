@@ -8,7 +8,7 @@ import {
 	SettingDefinitionItem,
 	SettingDefinitionPage,
 } from 'obsidian';
-import type CustomBulletsPlugin from './main';
+import type OhMyBulletPlugin from './main';
 import type { SignifierPosition } from './signifiers';
 
 /** Theme colors, so every choice follows light and dark mode. */
@@ -79,7 +79,7 @@ export type AgentLegendMode = 'ask' | 'on' | 'off';
 /** What a short tap or click on a bullet does. */
 export type TapAction = 'none' | 'toggle' | 'menu';
 
-export interface CustomBulletsSettings {
+export interface OhMyBulletSettings {
 	bullets: BulletDef[];
 	signifiers: SignifierDef[];
 	/** A stray tap should not change a task, so the default is to do nothing. */
@@ -90,7 +90,7 @@ export interface CustomBulletsSettings {
 	noteLegend: boolean;
 }
 
-export const DEFAULT_SETTINGS: CustomBulletsSettings = {
+export const DEFAULT_SETTINGS: OhMyBulletSettings = {
 	bullets: [
 		bullet(' ', '•', { meaning: 'task, not done' }),
 		bullet('/', '/', { meaning: 'task in progress' }),
@@ -111,7 +111,7 @@ export const DEFAULT_SETTINGS: CustomBulletsSettings = {
 };
 
 /** Fill in what settings saved by an earlier version do not have. */
-export function normalizeSettings(settings: CustomBulletsSettings) {
+export function normalizeSettings(settings: OhMyBulletSettings) {
 	settings.bullets = settings.bullets.map((b) => {
 		// Strikethrough used to fade the text as well.
 		const textColor = b.textColor ?? (b.strike ? 'faint' : DEFAULT_TEXT_COLOR);
@@ -154,11 +154,11 @@ export function signifierError(signifiers: SignifierDef[], index: number): strin
 const LOCKED_CHARS = new Set([' ', 'x']);
 
 /** Entries that are complete and not duplicated; the rest are ignored until fixed. */
-export function validBullets(settings: CustomBulletsSettings): BulletDef[] {
+export function validBullets(settings: OhMyBulletSettings): BulletDef[] {
 	return settings.bullets.filter((_, index) => bulletError(settings.bullets, index) === null);
 }
 
-export function validSignifiers(settings: CustomBulletsSettings): SignifierDef[] {
+export function validSignifiers(settings: OhMyBulletSettings): SignifierDef[] {
 	return settings.signifiers
 		.filter((_, index) => signifierError(settings.signifiers, index) === null)
 		// Settings saved by an earlier version have no symbol or position.
@@ -207,10 +207,10 @@ const TEXT_COLOR_OPTIONS: Record<string, string> = { [DEFAULT_TEXT_COLOR]: 'Same
  * indexes them for the settings search. Each bullet and signifier is an entry in
  * a list that opens a page of its own, which also suits a phone.
  */
-export class CustomBulletsSettingTab extends PluginSettingTab {
-	plugin: CustomBulletsPlugin;
+export class OhMyBulletSettingTab extends PluginSettingTab {
+	plugin: OhMyBulletPlugin;
 
-	constructor(app: App, plugin: CustomBulletsPlugin) {
+	constructor(app: App, plugin: OhMyBulletPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -246,11 +246,11 @@ export class CustomBulletsSettingTab extends PluginSettingTab {
 					mobile
 						? {
 								name: 'From the toolbar',
-								desc: 'Add "Custom Bullets: Choose a bullet for this line" to the mobile toolbar (search these settings for "toolbar"). The button opens the same menu for the line you are typing on, so you do not have to hit the bullet.',
+								desc: 'Add "Oh My Bullet: Choose a bullet for this line" to the mobile toolbar (search these settings for "toolbar"). The button opens the same menu for the line you are typing on, so you do not have to hit the bullet.',
 							}
 						: {
 								name: 'From the keyboard',
-								desc: 'Give "Custom Bullets: Choose a bullet for this line" a hotkey to open the same menu for the line the cursor is on. Each bullet and signifier also has a command of its own.',
+								desc: 'Give "Oh My Bullet: Choose a bullet for this line" a hotkey to open the same menu for the line the cursor is on. Each bullet and signifier also has a command of its own.',
 							},
 				],
 			},

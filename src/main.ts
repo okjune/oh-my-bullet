@@ -13,16 +13,16 @@ import { createEditorExtension, createSignifierInputHandler } from './editor';
 import { syncAgentLegend, syncNoteLegend } from './legend';
 import { createReadingProcessor, decorateTasksPluginItem } from './reading';
 import {
-	CustomBulletsSettingTab,
-	CustomBulletsSettings,
+	OhMyBulletSettingTab,
+	OhMyBulletSettings,
 	DEFAULT_SETTINGS,
 	normalizeSettings,
 	validBullets,
 	validSignifiers,
 } from './settings';
 
-export default class CustomBulletsPlugin extends Plugin {
-	settings: CustomBulletsSettings = DEFAULT_SETTINGS;
+export default class OhMyBulletPlugin extends Plugin {
+	settings: OhMyBulletSettings = DEFAULT_SETTINGS;
 	// The rules generated from the settings live in a constructed stylesheet. A pop-out
 	// window is a document of its own and needs its own copy, so there is one per window.
 	private sheets = new Map<Document, CSSStyleSheet>();
@@ -46,7 +46,7 @@ export default class CustomBulletsPlugin extends Plugin {
 		this.registerEditorExtension(createEditorExtension(getSignifiers));
 		this.registerEditorExtension(createSignifierInputHandler(getSignifiers));
 
-		this.addSettingTab(new CustomBulletsSettingTab(this.app, this));
+		this.addSettingTab(new OhMyBulletSettingTab(this.app, this));
 
 		this.registerCommands();
 
@@ -78,7 +78,7 @@ export default class CustomBulletsPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const saved = (await this.loadData()) as Partial<CustomBulletsSettings> | null;
+		const saved = (await this.loadData()) as Partial<OhMyBulletSettings> | null;
 		// Copy the defaults so editing the settings never mutates DEFAULT_SETTINGS.
 		this.settings = { ...structuredClone(DEFAULT_SETTINGS), ...(saved ?? {}) };
 		normalizeSettings(this.settings);
@@ -270,7 +270,7 @@ export default class CustomBulletsPlugin extends Plugin {
 		const modal = new Modal(this.app);
 		modal.setTitle('Explain your bullets to AI agents?');
 		modal.contentEl.createEl('p', {
-			text: 'AI agents read the raw text of your notes, so they cannot see what a bullet such as "- [>]" means. Custom Bullets can keep a short legend in AGENTS.md (and CLAUDE.md, if you have one) at the top of this vault. You can change this later in the settings.',
+			text: 'AI agents read the raw text of your notes, so they cannot see what a bullet such as "- [>]" means. Oh My Bullet can keep a short legend in AGENTS.md (and CLAUDE.md, if you have one) at the top of this vault. You can change this later in the settings.',
 		});
 		new Setting(modal.contentEl)
 			.addButton((button) =>

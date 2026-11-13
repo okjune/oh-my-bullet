@@ -10,10 +10,10 @@ export interface Signifier {
 export type SignifierPosition = 'left' | 'center' | 'right';
 
 /** Attribute set on the task line (Live Preview) or list item (reading view) for left/center signifiers. */
-export const SIGNIFIER_ATTR = 'data-custom-bullets-signifier';
-export const SIGNIFIER_HIDDEN_CLASS = 'custom-bullets-signifier-hidden';
+export const SIGNIFIER_ATTR = 'data-oh-my-bullet-signifier';
+export const SIGNIFIER_HIDDEN_CLASS = 'oh-my-bullet-signifier-hidden';
 
-export const SIGNIFIER_CLASS = 'custom-bullets-signifier';
+export const SIGNIFIER_CLASS = 'oh-my-bullet-signifier';
 
 function escapeForCharClass(char: string): string {
 	return char.replace(/[\\\]^-]/g, '\\$&');

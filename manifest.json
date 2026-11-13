@@ -1,6 +1,6 @@
 {
-	"id": "custom-bullets",
-	"name": "Custom Bullets",
+	"id": "oh-my-bullet",
+	"name": "Oh My Bullet",
 	"version": "0.1.1",
 	"minAppVersion": "1.13.0",
 	"description": "Turn task checkboxes into paper-style bullets and combine them freely with signifiers.",

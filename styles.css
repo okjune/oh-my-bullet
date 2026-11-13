@@ -1,12 +1,12 @@
 /*
- * Custom Bullets
+ * Oh My Bullet
  *
  * The bullet and signifier rules depend on the settings, so the plugin
  * generates them at runtime. Only the fixed parts live here.
  */
 
 /* Every signifier takes the same width, so the text after it starts in one column. */
-.custom-bullets-signifier {
+.oh-my-bullet-signifier {
   display: inline-block;
   width: 1.15em;
   text-align: center;
@@ -26,6 +26,6 @@ input.task-list-item-checkbox {
 }
 
 /* A signifier drawn on the bullet hides its inline copy. */
-.custom-bullets-signifier-hidden {
+.oh-my-bullet-signifier-hidden {
   display: none;
 }

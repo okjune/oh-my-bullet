@@ -1,4 +1,4 @@
-# Custom Bullets
+# Oh My Bullet
 
 Turn task checkboxes into paper-style bullets, and combine them freely with signifiers.
 

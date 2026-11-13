@@ -1,7 +1,7 @@
 import { SIGNIFIER_ATTR, SIGNIFIER_CLASS } from './signifiers';
 import {
 	COLORS,
-	CustomBulletsSettings,
+	OhMyBulletSettings,
 	DEFAULT_TEXT_COLOR,
 	validBullets,
 	validSignifiers,
@@ -63,7 +63,7 @@ function checkboxSelectors(char: string): string[] {
 }
 
 /** The rules that depend on the user's settings. Everything else lives in styles.css. */
-export function buildDynamicCss(settings: CustomBulletsSettings): string {
+export function buildDynamicCss(settings: OhMyBulletSettings): string {
 	const rules: string[] = [];
 
 	// Obsidian strikes through and fades every checked task. Turn that off;

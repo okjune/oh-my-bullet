@@ -1,8 +1,8 @@
 import { App, TFile, normalizePath } from 'obsidian';
-import { CustomBulletsSettings, validBullets, validSignifiers } from './settings';
+import { OhMyBulletSettings, validBullets, validSignifiers } from './settings';
 
-const START = '<!-- custom-bullets:start -->';
-const END = '<!-- custom-bullets:end -->';
+const START = '<!-- oh-my-bullet:start -->';
+const END = '<!-- oh-my-bullet:end -->';
 /** Agent instruction files at the top of the vault. The first one is created when none exists. */
 const AGENT_FILES = ['AGENTS.md', 'CLAUDE.md'];
 export const NOTE_LEGEND_PROPERTY = 'bullet-legend';
@@ -12,14 +12,14 @@ function shown(char: string): string {
 }
 
 /** The legend as a Markdown section, wrapped in markers so it can be found again. */
-export function buildAgentLegend(settings: CustomBulletsSettings): string {
+export function buildAgentLegend(settings: OhMyBulletSettings): string {
 	const bullets = validBullets(settings).filter((b) => b.meaning);
 	const signifiers = validSignifiers(settings).filter((s) => s.meaning);
 	const lines = [
 		START,
 		'## Task notation',
 		'',
-		'Tasks in this vault use the Custom Bullets plugin. The character inside the brackets of a task is its bullet.',
+		'Tasks in this vault use the Oh My Bullet plugin. The character inside the brackets of a task is its bullet.',
 		'',
 		...bullets.map((b) => `- \`- [${shown(b.char)}]\` ${b.meaning}`),
 	];
@@ -58,7 +58,7 @@ function withLegend(text: string, legend: string): string {
 }
 
 /** Write, update or remove the legend in the vault's agent instruction files. */
-export async function syncAgentLegend(app: App, settings: CustomBulletsSettings) {
+export async function syncAgentLegend(app: App, settings: OhMyBulletSettings) {
 	const existing = AGENT_FILES.map((name) => app.vault.getAbstractFileByPath(normalizePath(name))).filter(
 		(file): file is TFile => file instanceof TFile,
 	);
@@ -83,7 +83,7 @@ export async function syncAgentLegend(app: App, settings: CustomBulletsSettings)
 }
 
 /** The legend for one note: only the markers that note actually uses, plain task and done aside. */
-export function buildNoteLegend(text: string, settings: CustomBulletsSettings): string {
+export function buildNoteLegend(text: string, settings: OhMyBulletSettings): string {
 	const bullets = validBullets(settings).filter((b) => b.meaning && b.char !== ' ' && b.char !== 'x');
 	const signifiers = validSignifiers(settings).filter((s) => s.meaning);
 	const usedBullets = new Set<string>();
@@ -109,7 +109,7 @@ export function buildNoteLegend(text: string, settings: CustomBulletsSettings): 
 }
 
 /** Set, update or remove the legend property of one note. Does nothing when it is already right. */
-export async function syncNoteLegend(app: App, file: TFile, settings: CustomBulletsSettings) {
+export async function syncNoteLegend(app: App, file: TFile, settings: OhMyBulletSettings) {
 	if (file.extension !== 'md') return;
 	// The file may have been deleted or renamed since the user left it.
 	if (app.vault.getAbstractFileByPath(file.path) !== file) return;
