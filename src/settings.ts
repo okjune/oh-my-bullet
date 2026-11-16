@@ -47,6 +47,9 @@ export interface BulletDef {
 
 export const DEFAULT_TEXT_COLOR = 'default';
 
+/** The sample lines in the settings. */
+export const PREVIEW_LINES_CLASS = 'oh-my-bullet-preview-lines';
+
 function bullet(char: string, symbol: string, overrides: Partial<BulletDef> = {}): BulletDef {
 	return {
 		char,
@@ -316,7 +319,7 @@ export class OhMyBulletSettingTab extends PluginSettingTab {
 			searchable: false,
 			render: (setting) => {
 				setting.settingEl.addClass('oh-my-bullet-preview');
-				const el = setting.settingEl.createDiv({ cls: 'oh-my-bullet-preview-lines markdown-rendered show-indentation-guide' });
+				const el = setting.settingEl.createDiv({ cls: `${PREVIEW_LINES_CLASS} markdown-rendered show-indentation-guide` });
 				// The settings open in a window of their own, which has not been given the
 				// generated styles yet: it is not a workspace window, so no event announces it.
 				const win = el.ownerDocument.defaultView;

@@ -25,9 +25,9 @@ class SignifierWidget extends WidgetType {
 
 	toDOM(view: EditorView): HTMLElement {
 		// Built in the editor's own document, which is not the main one in a pop-out window.
-		const span = view.dom.doc.createElement('span');
-		span.addClass(SIGNIFIER_CLASS);
-		span.setText(this.symbol);
+		// Obsidian gives every window its own DOM helpers; the typings declare them on the main one.
+		const win = view.dom.win as typeof window;
+		const span = win.createSpan({ cls: SIGNIFIER_CLASS, text: this.symbol });
 		span.dataset.signifier = this.char;
 		return span;
 	}

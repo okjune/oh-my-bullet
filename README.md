@@ -65,7 +65,9 @@ You can also add the legend to each note that uses your notation, as a `bullet-l
 
 ## Installation
 
-Oh My Bullet is not yet in the list of community plugins. Until it is, install it by hand:
+In Obsidian, open **Settings → Community plugins → Browse**, search for **Oh My Bullet**, then select **Install** and **Enable**. You can also open [its page in the plugin directory](https://community.obsidian.md/plugins/oh-my-bullet) and select **Add to Obsidian**.
+
+To install it by hand instead:
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](../../releases/latest).
 2. Put them in `<your vault>/.obsidian/plugins/oh-my-bullet/`.

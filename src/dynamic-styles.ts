@@ -3,6 +3,7 @@ import {
 	COLORS,
 	OhMyBulletSettings,
 	DEFAULT_TEXT_COLOR,
+	PREVIEW_LINES_CLASS,
 	validBullets,
 	validSignifiers,
 } from './settings';
@@ -108,7 +109,6 @@ export function buildDynamicCss(settings: OhMyBulletSettings): string {
 		const decoration = lines.length > 0 ? lines.join(' ') : 'none';
 		const text = [
 			`color: ${textColor} !important;`,
-			`text-decoration: ${decoration} !important;`,
 			// Obsidian styles checked lines through these two variables.
 			`--checklist-done-color: ${textColor};`,
 			`--checklist-done-decoration: ${decoration};`,
@@ -117,11 +117,16 @@ export function buildDynamicCss(settings: OhMyBulletSettings): string {
 		if (bullet.italic) text.push('font-style: italic !important;');
 		// Reading view marks the open task with an empty data-task.
 		const value = cssString(bullet.char);
-		const reading =
+		const readingItems =
 			bullet.char === ' '
-				? 'li.task-list-item[data-task=""], li.task-list-item[data-task=" "]'
-				: `li.task-list-item[data-task=${value}]`;
-		rules.push(`.HyperMD-task-line[data-task=${value}], ${reading} { ${text.join(' ')} }`);
+				? ['li.task-list-item[data-task=""]', 'li.task-list-item[data-task=" "]']
+				: [`li.task-list-item[data-task=${value}]`];
+		const editing = `.HyperMD-task-line[data-task=${value}]`;
+		rules.push(`${editing}, ${readingItems.join(', ')} { ${text.join(' ')} }`);
+		// A decoration set on an item would also run through its sub-tasks. The preview in
+		// the settings draws the text in a span of its own, so its items are left out here.
+		const decorated = readingItems.map((sel) => `${sel}:not(.${PREVIEW_LINES_CLASS} li)`);
+		rules.push(`${editing}, ${decorated.join(', ')} { text-decoration: ${decoration} !important; }`);
 	}
 
 	for (const signifier of validSignifiers(settings)) {
