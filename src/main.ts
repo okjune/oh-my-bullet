@@ -26,6 +26,9 @@ export default class OhMyBulletPlugin extends Plugin {
 	// The rules generated from the settings live in a constructed stylesheet. A pop-out
 	// window is a document of its own and needs its own copy, so there is one per window.
 	private sheets = new Map<Document, CSSStyleSheet>();
+	// Ids of the per-bullet and per-signifier commands registered last time, so the ones
+	// whose bullet or signifier is gone can be removed.
+	private dynamicCommandIds = new Set<string>();
 
 	async onload() {
 		await this.loadSettings();
@@ -200,7 +203,8 @@ export default class OhMyBulletPlugin extends Plugin {
 	/**
 	 * One command per bullet and per signifier, so each can have a hotkey.
 	 * Ids come from the character, so a hotkey survives a change of meaning.
-	 * Called again after the settings change; an existing id is replaced.
+	 * Called again after the settings change; an existing id is replaced, and the command
+	 * of a bullet or signifier that was removed, or whose character changed, is removed.
 	 */
 	private registerCommands() {
 		const label = (text: string, fallback: string) => text || fallback;
@@ -237,16 +241,21 @@ export default class OhMyBulletPlugin extends Plugin {
 				);
 			}),
 		});
+		const ids = new Set<string>();
 		for (const bullet of validBullets(this.settings)) {
+			const id = `set-bullet-${bullet.char.codePointAt(0)}`;
+			ids.add(id);
 			this.addCommand({
-				id: `set-bullet-${bullet.char.codePointAt(0)}`,
+				id,
 				name: `Set bullet: ${label(bullet.meaning, `[${bullet.char}]`)}`,
 				checkCallback: inEditor((editor) => changeSelectedLines(editor, (line) => withBullet(line, bullet.char))),
 			});
 		}
 		for (const signifier of validSignifiers(this.settings)) {
+			const id = `toggle-signifier-${signifier.char.codePointAt(0)}`;
+			ids.add(id);
 			this.addCommand({
-				id: `toggle-signifier-${signifier.char.codePointAt(0)}`,
+				id,
 				name: `Toggle signifier: ${label(signifier.meaning, signifier.char)}`,
 				checkCallback: inEditor((editor) => {
 					const signifiers = validSignifiers(this.settings);
@@ -256,6 +265,10 @@ export default class OhMyBulletPlugin extends Plugin {
 				}),
 			});
 		}
+		for (const id of this.dynamicCommandIds) {
+			if (!ids.has(id)) this.removeCommand(id);
+		}
+		this.dynamicCommandIds = ids;
 	}
 
 	/** Rewriting the agent files on every keystroke in the settings would be wasteful. */
