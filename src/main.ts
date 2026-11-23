@@ -110,21 +110,41 @@ export default class OhMyBulletPlugin extends Plugin {
 	 */
 	private watchTasksPlugin(doc: Document) {
 		const ITEM = 'li.plugin-tasks-list-item';
-		const decorate = (root: HTMLElement) => {
+		const win = doc.defaultView ?? window;
+		const decorate = (roots: Iterable<HTMLElement>) => {
 			const signifiers = validSignifiers(this.settings);
-			if (root.matches(ITEM)) decorateTasksPluginItem(root, signifiers);
-			root.querySelectorAll<HTMLElement>(ITEM).forEach((li) => decorateTasksPluginItem(li, signifiers));
+			for (const root of roots) {
+				// It may have been taken out again before the frame came.
+				if (!root.isConnected) continue;
+				if (root.matches(ITEM)) decorateTasksPluginItem(root, signifiers);
+				root.querySelectorAll<HTMLElement>(ITEM).forEach((li) => decorateTasksPluginItem(li, signifiers));
+			}
+		};
+
+		// The whole window changes all the time: every keystroke and every scroll adds
+		// elements. Rather than search each one as it comes, collect them and search
+		// once a frame. The frame runs before the next paint, so nothing is seen undrawn.
+		const pending = new Set<HTMLElement>();
+		let frame: number | null = null;
+		const flush = () => {
+			frame = null;
+			decorate(pending);
+			pending.clear();
 		};
 		const observer = new MutationObserver((mutations) => {
 			for (const mutation of mutations) {
 				mutation.addedNodes.forEach((node) => {
-					if (node.instanceOf(HTMLElement) && (node.matches(ITEM) || node.querySelector(ITEM))) decorate(node);
+					if (node.instanceOf(HTMLElement)) pending.add(node);
 				});
 			}
+			if (pending.size > 0 && frame === null) frame = win.requestAnimationFrame(flush);
 		});
 		observer.observe(doc.body, { childList: true, subtree: true });
-		this.register(() => observer.disconnect());
-		decorate(doc.body);
+		this.register(() => {
+			observer.disconnect();
+			if (frame !== null) win.cancelAnimationFrame(frame);
+		});
+		decorate([doc.body]);
 	}
 
 	/** Right-click a bullet, or long-press it on a touch screen, to change it or its signifier. */
