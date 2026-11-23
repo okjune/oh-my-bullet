@@ -15,8 +15,8 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@codemirror/language": "^6.13.1",
-		"@codemirror/state": "^6.7.6",
-		"@codemirror/view": "^6.43.13",
+		"@codemirror/state": "6.5.0",
+		"@codemirror/view": "6.38.6",
 		"@eslint/js": "^9.39.4",
 		"@types/node": "^22.15.17",
 		"esbuild": "0.25.5",
@@ -24,7 +24,7 @@
 		"eslint-plugin-obsidianmd": "^0.4.0",
 		"globals": "^17.6.0",
 		"jiti": "^2.6.1",
-		"obsidian": "latest",
+		"obsidian": "~1.13.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.59.1"
 	}
