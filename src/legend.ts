@@ -36,10 +36,17 @@ export function buildAgentLegend(settings: OhMyBulletSettings): string {
 	return lines.join('\n');
 }
 
-function withoutLegend(text: string): string {
+/** Whether the text holds a complete legend section, start and end markers in order. */
+function hasLegend(text: string): boolean {
 	const start = text.indexOf(START);
 	const end = text.indexOf(END);
-	if (start === -1 || end === -1 || end < start) return text;
+	return start !== -1 && end !== -1 && end > start;
+}
+
+function withoutLegend(text: string): string {
+	if (!hasLegend(text)) return text;
+	const start = text.indexOf(START);
+	const end = text.indexOf(END);
 	const before = text.slice(0, start).replace(/\n+$/, '');
 	const after = text.slice(end + END.length).replace(/^\n+/, '');
 	if (!before) return after;
@@ -65,6 +72,9 @@ export async function syncAgentLegend(app: App, settings: OhMyBulletSettings) {
 
 	if (settings.agentLegend !== 'on') {
 		for (const file of existing) {
+			// Only a file that holds the legend is ours to touch. One without it, even an
+			// empty one, belongs to the user and is left exactly as it is.
+			if (!hasLegend(await app.vault.read(file))) continue;
 			const rest = await app.vault.process(file, (text) => withoutLegend(text));
 			// A file that held nothing but the legend was created by this plugin; do not leave it empty.
 			if (rest.trim() === '') await app.fileManager.trashFile(file);
