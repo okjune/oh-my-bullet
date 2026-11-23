@@ -21,7 +21,7 @@ function findCheckbox(li: HTMLElement): HTMLInputElement | null {
 		if (child.instanceOf(HTMLInputElement) && child.type === 'checkbox') return child;
 		if (child.instanceOf(HTMLParagraphElement)) {
 			const first = child.querySelector(':scope > input[type="checkbox"]');
-			if (first instanceof HTMLInputElement) return first;
+			if (first?.instanceOf(HTMLInputElement)) return first;
 		}
 	}
 	return null;
@@ -58,10 +58,11 @@ function markLeadingText(checkbox: HTMLInputElement, leadingText: RegExp, signif
  */
 function flattenNestedList(li: HTMLElement, checkbox: HTMLInputElement, char: string, signifiers: Signifier[]): boolean {
 	const next = nextMeaningfulSibling(checkbox);
-	if (!(next instanceof HTMLUListElement) || next.parentElement !== li) return false;
+	// instanceOf, not instanceof: an element in a pop-out window belongs to another realm.
+	if (!next?.instanceOf(HTMLUListElement) || next.parentElement !== li) return false;
 	if (next.children.length !== 1) return false;
 	const inner = next.children[0];
-	if (!(inner instanceof HTMLLIElement) || inner.hasAttribute('data-task')) return false;
+	if (!inner?.instanceOf(HTMLLIElement) || inner.hasAttribute('data-task')) return false;
 
 	const fragment = createFragment();
 	fragment.append(createSignifierEl(char, signifiers), ' ');
