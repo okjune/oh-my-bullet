@@ -43,7 +43,8 @@ function hasLegend(text: string): boolean {
 	return start !== -1 && end !== -1 && end > start;
 }
 
-function withoutLegend(text: string): string {
+/** The text with its legend section taken out, and the blank lines around it closed up. */
+export function withoutLegend(text: string): string {
 	if (!hasLegend(text)) return text;
 	const start = text.indexOf(START);
 	const end = text.indexOf(END);
@@ -54,7 +55,8 @@ function withoutLegend(text: string): string {
 	return before + '\n\n' + after;
 }
 
-function withLegend(text: string, legend: string): string {
+/** The text with its legend section replaced by `legend`, or with `legend` added at the end. */
+export function withLegend(text: string, legend: string): string {
 	const start = text.indexOf(START);
 	const end = text.indexOf(END);
 	if (start !== -1 && end !== -1 && end > start) {

@@ -79,6 +79,7 @@ npm run build
 
 ## Testing
 
+- Unit tests: `npm test` runs the Vitest suites in `tests/`, also in CI. They cover code that runs without the app (line rewriting, regexes, settings validation, legends, generated CSS). The `obsidian` package has types only, so `vitest.config.mts` points it at `tests/obsidian-stub.ts`; add to the stub when a tested module needs another value from `obsidian`.
 - Manual install for testing: copy `main.js`, `manifest.json`, `styles.css` (if any) to:
     ```
     <Vault>/.obsidian/plugins/<plugin-id>/
