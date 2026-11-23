@@ -1,5 +1,5 @@
 import { App, TFile, normalizePath } from 'obsidian';
-import { OhMyBulletSettings, validBullets, validSignifiers } from './settings';
+import { OhMyBulletSettings, validBullets, validSignifiers } from './settings/defaults';
 
 const START = '<!-- oh-my-bullet:start -->';
 const END = '<!-- oh-my-bullet:end -->';

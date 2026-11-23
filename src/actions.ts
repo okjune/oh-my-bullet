@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { App, Editor, MarkdownPostProcessorContext, Menu, TFile } from 'obsidian';
-import { BulletDef, OhMyBulletSettings, SignifierDef, validBullets, validSignifiers } from './settings';
+import { BulletDef, OhMyBulletSettings, SignifierDef, validBullets, validSignifiers } from './settings/defaults';
 
 const LIST_PREFIX = /^(\s*(?:[-*+]|\d+[.)])\s)/;
 const TASK_PREFIX = /^(\s*(?:[-*+]|\d+[.)])\s\[)(.)(\]\s?)/;

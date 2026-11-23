@@ -3,10 +3,10 @@ import {
 	COLORS,
 	OhMyBulletSettings,
 	DEFAULT_TEXT_COLOR,
-	PREVIEW_LINES_CLASS,
 	validBullets,
 	validSignifiers,
-} from './settings';
+} from './settings/defaults';
+import { PREVIEW_LINES_CLASS } from './settings/preview';
 
 function cssString(value: string): string {
 	return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
